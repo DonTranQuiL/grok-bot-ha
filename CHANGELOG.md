@@ -13,6 +13,7 @@ First public release.
 * New *Last status* states **Restarting after the reply** and **Restarted, waiting for the result**. The card shows them in the header and the reply bubble, also after a page reload.
 * `sensor.grok_bot_awaiting_reply` attributes `restart_scheduled`, `restarted_waiting` and `conversations`.
 * The setup prompt tells Grok Bot to pass the `conversation_id` to `safe_restart` and to reply right after it.
+* README: a full deep-dive guide (requirements, step-by-step setup, every option page, entity and action, Trusted access, a worked example, troubleshooting) with the demo GIF and screenshots.
 * README: demo GIF, screenshots of the Access page, the options menu and the device page.
 
 ## 0.1.3
