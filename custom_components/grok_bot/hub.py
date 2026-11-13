@@ -228,6 +228,18 @@ class GrokBotHub:
         """Button: every awaiting conversation was answered in the Grok Bot app."""
         return self._mark_handled(list(self.pending))
 
+    async def async_clear_history(self) -> dict[str, int]:
+        """Empty the card's conversation: history, last reply and awaiting replies."""
+        cleared = {"history": len(self.history), "awaiting": len(self.pending)}
+        self.history.clear()
+        self.pending.clear()
+        self.last_reply = None
+        self.last_error = None
+        self.last_status = STATUS_IDLE
+        await self._store.async_save(self._data_to_save())
+        self._notify()
+        return cleared
+
     def _mark_handled(self, cids: list[str]) -> int:
         for cid in cids:
             self.pending.pop(cid, None)

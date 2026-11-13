@@ -456,6 +456,9 @@
       },
       "setup_prompt": {
         "name": "Grok Bot-setupprompt tonen"
+      },
+      "clear_history": {
+        "name": "Gespreksgeschiedenis wissen"
       }
     }
   },
@@ -848,6 +851,16 @@
           "name": "Aantal",
           "description": "Maximaal aantal vervangingen, 0 = alle."
         },
+        "config_entry_id": {
+          "name": "Configuratie-entry",
+          "description": "Alleen nodig bij meer dan een Grok Bot-entry."
+        }
+      }
+    },
+    "clear_history": {
+      "name": "Gespreksgeschiedenis wissen",
+      "description": "Maakt het gesprek op de Grok Bot-kaart leeg: de geschiedenis, het laatste antwoord en antwoorden waarop nog gewacht wordt. Er wordt niets naar Grok Bot gestuurd.",
+      "fields": {
         "config_entry_id": {
           "name": "Configuratie-entry",
           "description": "Alleen nodig bij meer dan een Grok Bot-entry."

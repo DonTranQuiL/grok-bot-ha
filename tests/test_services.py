@@ -282,3 +282,39 @@ async def test_conversation_agent(hass, webhook_mock):
     )
     assert "Grok Bot" in result.response.speech["plain"]["speech"]
     assert result.response.speech["plain"]["speech"].startswith("Doorgestuurd")
+
+
+async def test_clear_history_service_and_button(hass, webhook_mock):
+    """Clear conversation history empties the card and persists it."""
+    from homeassistant.helpers import entity_registry as er
+
+    entry = await setup_entry(hass)
+    hub = entry.runtime_data.hub
+    await hass.services.async_call(DOMAIN, "ask", {"message": "q"}, blocking=True)
+    await hub.async_handle_reply("hello", conversation_id="x")
+    await hass.services.async_call(DOMAIN, "ask", {"message": "q2"}, blocking=True)
+    await hass.async_block_till_done()
+    state = hass.states.get("sensor.grok_bot_last_reply")
+    assert state.state == "hello" and state.attributes["history"]
+    assert hub.pending
+
+    res = await hass.services.async_call(
+        DOMAIN, "clear_history", {}, blocking=True, return_response=True
+    )
+    await hass.async_block_till_done()
+    assert res["history"] >= 3 and res["awaiting"] >= 1
+    assert list(hub.history) == [] and hub.pending == {} and hub.last_reply is None
+    state = hass.states.get("sensor.grok_bot_last_reply")
+    assert state.state == "unknown" and state.attributes["history"] == []
+    assert hass.states.get("sensor.grok_bot_awaiting_reply").state == "0"
+    stored = hub._data_to_save()
+    assert stored["history"] == [] and stored["last_reply"] is None
+
+    # the button does the same, and is a config entity
+    await hub.async_handle_reply("again")
+    button = "button.grok_bot_clear_conversation_history"
+    assert er.async_get(hass).async_get(button).entity_category == "config"
+    await hass.services.async_call("button", "press", {"entity_id": button}, blocking=True)
+    await hass.async_block_till_done()
+    assert list(hub.history) == []
+    assert hass.states.get("sensor.grok_bot_last_reply").attributes["history"] == []

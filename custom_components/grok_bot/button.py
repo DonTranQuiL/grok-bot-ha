@@ -30,6 +30,7 @@ async def async_setup_entry(
             GrokBotButton(hub, "reset_budget"),
             GrokBotButton(hub, "rotate_token"),
             GrokBotButton(hub, "mark_handled"),
+            GrokBotButton(hub, "clear_history"),
             GrokBotButton(hub, "setup_prompt"),
         ]
     )
@@ -42,6 +43,8 @@ class GrokBotButton(GrokBotEntity, ButtonEntity):
         super().__init__(hub, key)
         if key in ("ping", "reset_budget", "rotate_token", "setup_prompt"):
             self._attr_entity_category = EntityCategory.DIAGNOSTIC
+        elif key == "clear_history":
+            self._attr_entity_category = EntityCategory.CONFIG
 
     async def async_press(self) -> None:
         hub = self.hub
@@ -52,6 +55,8 @@ class GrokBotButton(GrokBotEntity, ButtonEntity):
             hub.async_reset_budget()
         elif key == "rotate_token":
             hub.access.rotate_token()
+        elif key == "clear_history":
+            await hub.async_clear_history()
         elif key == "mark_handled":
             hub.async_mark_all_handled()
         elif key == "setup_prompt":

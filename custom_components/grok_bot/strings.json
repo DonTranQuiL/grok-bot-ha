@@ -456,6 +456,9 @@
       },
       "setup_prompt": {
         "name": "Show Grok Bot setup prompt"
+      },
+      "clear_history": {
+        "name": "Clear conversation history"
       }
     }
   },
@@ -848,6 +851,16 @@
           "name": "Count",
           "description": "Maximum number of replacements, 0 = all."
         },
+        "config_entry_id": {
+          "name": "Config entry",
+          "description": "Only needed with more than one Grok Bot entry."
+        }
+      }
+    },
+    "clear_history": {
+      "name": "Clear conversation history",
+      "description": "Empties the Grok Bot card's conversation: the history, the last reply and replies still awaited. Nothing is sent to Grok Bot.",
+      "fields": {
         "config_entry_id": {
           "name": "Config entry",
           "description": "Only needed with more than one Grok Bot entry."

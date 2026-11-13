@@ -180,6 +180,7 @@ Every send that expects an answer adds one to `sensor.grok_bot_awaiting_reply`. 
 | `grok_bot.ping` | `bypass_budget` | delivery status |
 | `grok_bot.reply` | `message`, `conversation_id`, `title`, `reply_to`, `data` (used by Grok Bot) | – |
 | `grok_bot.rotate_token` | `config_entry_id` | – |
+| `grok_bot.clear_history` | – | `{"history", "awaiting"}`: empties the card's conversation (history, last reply, awaited replies); nothing is sent |
 | `grok_bot.prepare_change` | `path` (trusted, admin only) | `{"path", "backup_path"}` |
 | `grok_bot.restore_backup` | `backup_path` (trusted, admin only) | `{"path", "restored_from"}` |
 | `grok_bot.edit_yaml` | `path`, `operation`, `key`/`value` or `find`/`replace`/`count` (trusted + YAML edits, admin only) | `{"ok", "changed", "path", "backup_path", "errors", "restored"}` |
@@ -200,7 +201,7 @@ The delivery status looks like this: `{"status": "sent" | "failed" | "auth_faile
 
 ### Entities
 
-`sensor.grok_bot_last_reply` (with `history`), `last_status`, `last_sent`, `sends_last_hour` and `sends_last_24_hours` (with `limit`/`remaining`), `last_grok_bot_action` (access webhook audit), plus the diagnostic sensors `sent_total`, `failed_total`, `dropped_total`, `awaiting_reply`, `access_method` (`ha_mcp`, `mcp_server`, `webhook` or `none`, with the connector URL hint) and `access_webhook_url`. There is also `switch.grok_bot_pause_sending`, the buttons *Send test ping*, *Send health report*, *Fix open repairs*, *Reset budget counters*, *Mark replies handled*, *Show Grok Bot setup prompt* and *Rotate access token*, `switch.grok_bot_trusted_access` (only when Trusted access is enabled), and, when enabled, `notify.grok_bot` and `conversation.grok_bot`.
+`sensor.grok_bot_last_reply` (with `history`), `last_status`, `last_sent`, `sends_last_hour` and `sends_last_24_hours` (with `limit`/`remaining`), `last_grok_bot_action` (access webhook audit), plus the diagnostic sensors `sent_total`, `failed_total`, `dropped_total`, `awaiting_reply`, `access_method` (`ha_mcp`, `mcp_server`, `webhook` or `none`, with the connector URL hint) and `access_webhook_url`. There is also `switch.grok_bot_pause_sending`, the buttons *Send test ping*, *Send health report*, *Fix open repairs*, *Reset budget counters*, *Mark replies handled*, *Clear conversation history* (wipes the card's conversation, kept across restarts otherwise), *Show Grok Bot setup prompt* and *Rotate access token*, `switch.grok_bot_trusted_access` (only when Trusted access is enabled), and, when enabled, `notify.grok_bot` and `conversation.grok_bot`.
 
 **Repairs:** *Install HA-MCP so Grok Bot can answer* (access method `mcp` but no MCP server found) and *Grok Bot not connected yet* (HA-MCP installed, no `grok_bot.reply` received yet). Both clear themselves.
 

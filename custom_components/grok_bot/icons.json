@@ -90,6 +90,9 @@
       },
       "setup_prompt": {
         "default": "mdi:clipboard-text"
+      },
+      "clear_history": {
+        "default": "mdi:broom"
       }
     },
     "notify": {
@@ -139,6 +142,9 @@
     },
     "edit_yaml": {
       "service": "mdi:file-document-edit"
+    },
+    "clear_history": {
+      "service": "mdi:broom"
     }
   }
 }

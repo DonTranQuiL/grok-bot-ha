@@ -238,6 +238,13 @@ reply:
         config_entry:
           integration: grok_bot
 
+clear_history:
+  fields:
+    config_entry_id:
+      selector:
+        config_entry:
+          integration: grok_bot
+
 rotate_token:
   fields:
     config_entry_id:

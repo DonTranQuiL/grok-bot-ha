@@ -322,6 +322,7 @@ MAX_ACTIONS_PER_REQUEST: Final = 20
 AUDIT_LEN: Final = 25
 EVENT_ACTION: Final = "grok_bot_action"
 SERVICE_ROTATE_TOKEN: Final = "rotate_token"
+SERVICE_CLEAR_HISTORY: Final = "clear_history"
 TOKEN_HEADER: Final = "X-Grok-Bot-Token"
 CALLBACK_PROTOCOL_VERSION: Final = 1
 

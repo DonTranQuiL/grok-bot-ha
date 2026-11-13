@@ -39,6 +39,7 @@ from .const import (
     ATTR_TITLE,
     DOMAIN,
     SERVICE_ASK,
+    SERVICE_CLEAR_HISTORY,
     SERVICE_DIAGNOSE,
     SERVICE_EDIT_YAML,
     SERVICE_FIX_ISSUE,
@@ -309,6 +310,9 @@ def async_setup_services(hass: HomeAssistant) -> None:
         hub = _hub(hass, call)
         hub.access.rotate_token()
 
+    async def clear_history(call: ServiceCall) -> ServiceResponse:
+        return await _hub(hass, call).async_clear_history()
+
     async def prepare_change(call: ServiceCall) -> ServiceResponse:
         return await _hub(hass, call).trusted.async_prepare_change(call.data["path"])
 
@@ -374,6 +378,12 @@ def async_setup_services(hass: HomeAssistant) -> None:
         (SERVICE_HEALTH_REPORT, health_report, HEALTH_SCHEMA, optional),
         (SERVICE_PING, ping, PING_SCHEMA, optional),
         (SERVICE_REPLY, reply, REPLY_SCHEMA, SupportsResponse.NONE),
+        (
+            SERVICE_CLEAR_HISTORY,
+            clear_history,
+            vol.Schema({vol.Optional(ATTR_CONFIG_ENTRY_ID): cv.string}),
+            optional,
+        ),
         (
             SERVICE_ROTATE_TOKEN,
             rotate_token,
