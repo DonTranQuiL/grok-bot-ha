@@ -237,3 +237,10 @@ reply:
       selector:
         config_entry:
           integration: grok_bot
+
+rotate_token:
+  fields:
+    config_entry_id:
+      selector:
+        config_entry:
+          integration: grok_bot

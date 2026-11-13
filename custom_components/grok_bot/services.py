@@ -43,6 +43,7 @@ from .const import (
     SERVICE_HEALTH_REPORT,
     SERVICE_PING,
     SERVICE_REPLY,
+    SERVICE_ROTATE_TOKEN,
     SERVICE_SEND_EVENT,
 )
 
@@ -298,6 +299,10 @@ def async_setup_services(hass: HomeAssistant) -> None:
             reply_to=call.data.get(ATTR_REPLY_TO) or None,
         )
 
+    async def rotate_token(call: ServiceCall) -> None:
+        hub = _hub(hass, call)
+        hub.access.rotate_token()
+
     optional = SupportsResponse.OPTIONAL
     for name, handler, schema, response in (
         (SERVICE_ASK, ask, ASK_SCHEMA, optional),
@@ -307,6 +312,12 @@ def async_setup_services(hass: HomeAssistant) -> None:
         (SERVICE_HEALTH_REPORT, health_report, HEALTH_SCHEMA, optional),
         (SERVICE_PING, ping, PING_SCHEMA, optional),
         (SERVICE_REPLY, reply, REPLY_SCHEMA, SupportsResponse.NONE),
+        (
+            SERVICE_ROTATE_TOKEN,
+            rotate_token,
+            vol.Schema({vol.Optional(ATTR_CONFIG_ENTRY_ID): cv.string}),
+            SupportsResponse.NONE,
+        ),
     ):
         hass.services.async_register(
             DOMAIN, name, handler, schema=schema, supports_response=response

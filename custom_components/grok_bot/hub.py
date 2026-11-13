@@ -16,6 +16,7 @@ from homeassistant.core import HomeAssistant, State, callback
 from homeassistant.exceptions import TemplateError
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.event import async_track_time_interval
+from homeassistant.helpers.network import NoURLAvailableError, get_url
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.template import Template
 from homeassistant.util import dt as dt_util
@@ -24,6 +25,8 @@ from .api import GrokBotClient
 from .const import (
     ACTION_FIX,
     ACTION_REPORT,
+    CONF_ACCESS_METHOD,
+    CONF_ENABLE_INBOUND_WEBHOOK,
     CONF_INCLUDE_ATTRIBUTES,
     CONF_MAX_PAYLOAD,
     CONF_MAX_PER_DAY,
@@ -31,6 +34,8 @@ from .const import (
     CONF_QUIET_END,
     CONF_QUIET_HOURS,
     CONF_QUIET_START,
+    CONF_REPLY_TIMEOUT,
+    CONF_WEBHOOK_URL,
     DEFAULT_OPTIONS,
     DOMAIN,
     EVENT_DROPPED,
@@ -40,9 +45,14 @@ from .const import (
     INTEGRATION_VERSION,
     MAX_MESSAGE_LEN,
     MAX_STATE_LEN,
+    METHOD_MCP,
+    METHOD_NONE,
+    METHOD_WEBHOOK,
     PAYLOAD_SCHEMA_VERSION,
     SERVICE_REPLY,
+    SIGNAL_CONNECTED,
     SIGNAL_UPDATE,
+    STATUS_ANSWERED_ELSEWHERE,
     STATUS_AUTH_FAILED,
     STATUS_DROPPED_BUDGET,
     STATUS_DROPPED_PAUSED,
@@ -63,8 +73,11 @@ DAY = 86400
 
 
 def options_of(entry: ConfigEntry) -> dict[str, Any]:
-    """Entry options merged over the defaults."""
-    return {**DEFAULT_OPTIONS, **entry.options}
+    """Entry options merged over the defaults (0.1.0 options migrated)."""
+    opts = {**DEFAULT_OPTIONS, **entry.options}
+    if entry.options.get(CONF_ENABLE_INBOUND_WEBHOOK) and (CONF_ACCESS_METHOD not in entry.options):
+        opts[CONF_ACCESS_METHOD] = METHOD_WEBHOOK
+    return opts
 
 
 def _parse_time(value: Any) -> time | None:
@@ -150,10 +163,13 @@ class GrokBotHub:
         self.last_reply: dict[str, Any] | None = None
         self.history: deque[dict[str, Any]] = deque(maxlen=HISTORY_LEN)
         self.pending: dict[str, dict[str, Any]] = {}
+        self.connected = False
         self.recent_errors: deque[dict[str, Any]] = deque(maxlen=25)
         self._unsubs: list = []
         self._last_drop_log = 0.0
-        self.inbound_webhook_url: str | None = None
+        from .access import AccessManager
+
+        self.access = AccessManager(hass, self)
 
     # ----------------------------------------------------------------- setup
     @property
@@ -174,15 +190,101 @@ class GrokBotHub:
         if ts := data.get("last_sent"):
             self.last_sent = dt_util.parse_datetime(ts)
         self.last_status = data.get("last_status", STATUS_IDLE)
+        self.connected = bool(data.get("connected", False))
+        self.access.load(data)
         self._unsubs.append(
             async_track_time_interval(self.hass, self._async_tick, timedelta(minutes=1))
         )
 
     @callback
     def _async_tick(self, _now: datetime) -> None:
-        """Roll the budget window so counters drop over time."""
+        """Roll the budget window and expire replies that happened elsewhere."""
         self.budget.prune()
+        self.async_expire_pending()
         self._notify()
+
+    @callback
+    def async_expire_pending(self, now: float | None = None) -> int:
+        """Treat conversations older than the reply timeout as answered in the app."""
+        timeout = float(self.options[CONF_REPLY_TIMEOUT]) * 60
+        if timeout <= 0:
+            return 0
+        now = _time.time() if now is None else now
+        stale = [
+            cid
+            for cid, item in self.pending.items()
+            if now - float(item.get("created", now)) >= timeout
+        ]
+        return self._mark_handled(stale)
+
+    @callback
+    def async_mark_all_handled(self) -> int:
+        """Button: every awaiting conversation was answered in the Grok Bot app."""
+        return self._mark_handled(list(self.pending))
+
+    def _mark_handled(self, cids: list[str]) -> int:
+        for cid in cids:
+            self.pending.pop(cid, None)
+        if cids:
+            self.last_status = STATUS_ANSWERED_ELSEWHERE
+            self._save()
+            self._notify()
+        return len(cids)
+
+    # ------------------------------------------------------------- access
+    def mcp_info(self) -> dict[str, Any]:
+        """HA-MCP (preferred) or core MCP Server detection, see mcp.py."""
+        from .mcp import detect_mcp
+
+        return detect_mcp(self.hass, self.external_url())
+
+    @property
+    def mcp_ready(self) -> bool:
+        return bool(self.mcp_info()["ready"])
+
+    def setup_prompt(self, language: str | None = None) -> str:
+        from .prompt import setup_prompt
+
+        info = self.mcp_info()
+        hint = info["connector_url_hint"] if info["provider"] == "ha_mcp" else None
+        return setup_prompt(
+            self.hass,
+            webhook_url=self.entry.data[CONF_WEBHOOK_URL],
+            mcp_url=hint,
+            language=language,
+        )
+
+    def external_url(self) -> str | None:
+        try:
+            return get_url(self.hass, allow_internal=False, allow_ip=True, prefer_external=True)
+        except NoURLAvailableError:
+            return None
+
+    def access_info(self) -> dict[str, Any]:
+        """The `access` block: how Grok Bot can reach back into this instance."""
+        from .access import access_method
+
+        method = access_method(self.options)
+        external = self.external_url()
+        mcp = self.mcp_info()
+        if (method == METHOD_WEBHOOK and not self.access.url) or (
+            method == METHOD_MCP and not mcp["ready"]
+        ):
+            method_live = METHOD_NONE
+        else:
+            method_live = method
+        return {
+            "method": method_live,
+            "configured_method": method,
+            "mcp_ready": mcp["ready"],
+            "mcp_provider": mcp["provider"],
+            "connector_url_hint": mcp["connector_url_hint"],
+            "ha_instance": {
+                "name": self.hass.config.location_name,
+                "external_url": external,
+                "config_entry_id": self.entry.entry_id,
+            },
+        }
 
     def _data_to_save(self) -> dict[str, Any]:
         return {
@@ -193,6 +295,8 @@ class GrokBotHub:
             "history": list(self.history),
             "last_sent": self.last_sent.isoformat() if self.last_sent else None,
             "last_status": self.last_status,
+            "connected": self.connected,
+            **self.access.to_store(),
         }
 
     @callback
@@ -208,6 +312,9 @@ class GrokBotHub:
     @callback
     def _notify(self) -> None:
         async_dispatcher_send(self.hass, self.signal)
+
+    save = _save
+    notify = _notify
 
     # ---------------------------------------------------------------- budget
     @property
@@ -273,7 +380,7 @@ class GrokBotHub:
         data: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """The JSON document posted to the Grok Bot webhook (see README)."""
-        return {
+        payload = {
             "schema": PAYLOAD_SCHEMA_VERSION,
             "type": kind,
             "message": (message or "")[:MAX_MESSAGE_LEN],
@@ -302,6 +409,10 @@ class GrokBotHub:
                 },
             },
         }
+        payload["access"] = self.access_info()
+        if conversation_id and (cb := self.access.callback_block(conversation_id)):
+            payload["callback"] = cb
+        return payload
 
     @staticmethod
     def _size(payload: dict) -> int:
@@ -396,7 +507,11 @@ class GrokBotHub:
             self.stats["sent"] += 1
             self.last_status = STATUS_SENT
             self.last_error = None
-            self.pending[conversation_id] = {"reply_to": reply_to, "type": kind}
+            self.pending[conversation_id] = {
+                "reply_to": reply_to,
+                "type": kind,
+                "created": _time.time(),
+            }
             while len(self.pending) > PENDING_LEN:
                 self.pending.pop(next(iter(self.pending)))
             self.hass.bus.async_fire(
@@ -481,6 +596,9 @@ class GrokBotHub:
     ) -> dict[str, Any]:
         """A reply from Grok Bot (via grok_bot.reply or the inbound webhook)."""
         pending = self.pending.pop(conversation_id or "", None) or {}
+        if not self.connected:
+            self.connected = True
+            async_dispatcher_send(self.hass, SIGNAL_CONNECTED, self.entry.entry_id)
         target = reply_to or pending.get("reply_to")
         now = dt_util.utcnow().isoformat()
         self.last_reply = {

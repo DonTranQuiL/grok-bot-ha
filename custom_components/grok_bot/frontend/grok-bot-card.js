@@ -14,12 +14,13 @@ const KEYS = {
   sends_day: "sensor",
   pending: "sensor",
   pause: "switch",
+  mark_handled: "button",
 };
 
 const I18N = {
   en: {
     idle: "Ready", thinking: "Thinking…", success: "Replied", error: "Problem",
-    paused: "Paused", placeholder: "Ask Grok Bot anything…", send: "Send",
+    paused: "Paused", placeholder: "Ask Grok Bot anything…", send: "Send", awaiting: "awaiting", handled: "Mark replies handled",
     no_reply: "No reply yet. Ask something below.", issues: "Open repairs",
     no_issues: "No open repairs", diagnose: "Diagnose", fix: "Fix",
     history: "Recent conversation", you: "You", bot: "Grok Bot",
@@ -29,7 +30,7 @@ const I18N = {
   },
   nl: {
     idle: "Klaar", thinking: "Denkt na…", success: "Beantwoord", error: "Probleem",
-    paused: "Gepauzeerd", placeholder: "Vraag Grok Bot iets…", send: "Verstuur",
+    paused: "Gepauzeerd", placeholder: "Vraag Grok Bot iets…", send: "Verstuur", awaiting: "wachtend", handled: "Antwoorden als afgehandeld markeren",
     no_reply: "Nog geen antwoord. Stel hieronder een vraag.", issues: "Open reparaties",
     no_issues: "Geen open reparaties", diagnose: "Diagnose", fix: "Repareer",
     history: "Recent gesprek", you: "Jij", bot: "Grok Bot",
@@ -253,7 +254,7 @@ class GrokBotCard extends HTMLElement {
       last_reply: "sensor.grok_bot_last_reply", last_status: "sensor.grok_bot_last_status",
       last_sent: "sensor.grok_bot_last_sent", sends_hour: "sensor.grok_bot_sends_last_hour",
       sends_day: "sensor.grok_bot_sends_last_24_hours", pending: "sensor.grok_bot_awaiting_reply",
-      pause: "switch.grok_bot_pause_sending",
+      pause: "switch.grok_bot_pause_sending", mark_handled: "button.grok_bot_mark_replies_handled",
     };
     for (const key of Object.keys(KEYS)) {
       const override = this._config[`entity_${key}`];
@@ -337,6 +338,13 @@ class GrokBotCard extends HTMLElement {
     this._hass.callService("switch", on ? "turn_off" : "turn_on", { entity_id: id });
   }
 
+  _markHandled() {
+    const id = this._ids.mark_handled;
+    this._waiting = false;
+    if (id) this._hass.callService("button", "press", { entity_id: id });
+    this._render();
+  }
+
   _chips(t) {
     const hour = this._state("sends_hour");
     const day = this._state("sends_day");
@@ -358,6 +366,11 @@ class GrokBotCard extends HTMLElement {
       const warn = status.state.startsWith("dropped");
       const label = this._hass.formatEntityState ? this._hass.formatEntityState(status) : status.state;
       chips.push(`<span class="chip ${bad ? "bad" : warn ? "warn" : ""}"><ha-icon icon="mdi:send-check"></ha-icon>${esc(label)}</span>`);
+    }
+    const pending = this._state("pending");
+    if (pending && Number(pending.state) > 0) {
+      chips.push(`<button class="chip btn warn" data-action="handled" title="${esc(t.handled)}">
+        <ha-icon icon="mdi:message-processing"></ha-icon>${esc(pending.state)} ${t.awaiting}</button>`);
     }
     let bar = "";
     if (day && day.attributes.limit) {
@@ -464,6 +477,7 @@ class GrokBotCard extends HTMLElement {
     const root = this.shadowRoot;
     root.querySelector('[data-action="send"]')?.addEventListener("click", () => this._send());
     root.querySelector('[data-action="pause"]')?.addEventListener("click", () => this._togglePause());
+    root.querySelector('[data-action="handled"]')?.addEventListener("click", () => this._markHandled());
     const area = root.querySelector("textarea");
     if (area && focused) {
       area.focus();

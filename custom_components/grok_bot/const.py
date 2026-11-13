@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Final
 
 DOMAIN: Final = "grok_bot"
-INTEGRATION_VERSION: Final = "0.1.0"
+INTEGRATION_VERSION: Final = "0.1.1"
 PAYLOAD_SCHEMA_VERSION: Final = 1
 
 # Config entry data
@@ -253,3 +253,129 @@ SIGNAL_UPDATE: Final = "grok_bot_update_{}"
 
 MAX_MESSAGE_LEN: Final = 8000
 MAX_STATE_LEN: Final = 255
+
+# ------------------------------------------------------------------ access
+# User-controlled access for Grok Bot back into this Home Assistant through a
+# token-protected webhook (for instances Grok Bot's own connector can't reach).
+CONF_ACCESS_LEVEL: Final = "access_level"
+CONF_ACCESS_ACTIONS: Final = "access_actions"
+CONF_ACCESS_DOMAINS: Final = "access_domains"
+CONF_ACCESS_ENTITIES: Final = "access_entities"
+CONF_ACCESS_REQUIRE_PENDING: Final = "access_require_pending"
+CONF_ACCESS_TTL: Final = "access_ttl"
+CONF_ACCESS_NOTIFY: Final = "access_notify"
+CONF_ACCESS_MAX_RESPONSE: Final = "access_max_response_kb"
+
+ACCESS_OFF: Final = "off"
+ACCESS_REPLY: Final = "reply"
+ACCESS_READ: Final = "read"
+ACCESS_CONTROL: Final = "control"
+ACCESS_FIX: Final = "fix"
+ACCESS_LEVELS: Final = [ACCESS_OFF, ACCESS_REPLY, ACCESS_READ, ACCESS_CONTROL, ACCESS_FIX]
+
+ACT_REPLY: Final = "reply"
+ACT_GET_STATES: Final = "get_states"
+ACT_GET_HISTORY: Final = "get_history"
+ACT_LIST_REPAIRS: Final = "list_repairs"
+ACT_GET_LOGS: Final = "get_logs"
+ACT_LIST_ENTRIES: Final = "list_entries"
+ACT_CALL_SERVICE: Final = "call_service"
+ACT_RELOAD_ENTRY: Final = "reload_entry"
+ACT_IGNORE_REPAIR: Final = "ignore_repair"
+ACT_ENABLE_ENTITY: Final = "enable_entity"
+READ_ACTIONS: Final = [
+    ACT_GET_STATES,
+    ACT_GET_HISTORY,
+    ACT_LIST_REPAIRS,
+    ACT_GET_LOGS,
+    ACT_LIST_ENTRIES,
+]
+FIX_ACTIONS: Final = [ACT_RELOAD_ENTRY, ACT_IGNORE_REPAIR, ACT_ENABLE_ENTITY]
+ALL_ACTIONS: Final = [ACT_REPLY, *READ_ACTIONS, ACT_CALL_SERVICE, *FIX_ACTIONS]
+LEVEL_ACTIONS: Final[dict[str, frozenset[str]]] = {
+    ACCESS_OFF: frozenset(),
+    ACCESS_REPLY: frozenset({ACT_REPLY}),
+    ACCESS_READ: frozenset({ACT_REPLY, *READ_ACTIONS}),
+    ACCESS_CONTROL: frozenset({ACT_REPLY, *READ_ACTIONS, ACT_CALL_SERVICE}),
+    ACCESS_FIX: frozenset(ALL_ACTIONS),
+}
+
+# Never callable through the access webhook, whatever the level or allowlist.
+BLOCKED_SERVICE_DOMAINS: Final = frozenset(
+    {"hassio", "shell_command", "python_script", "pyscript", "command_line", DOMAIN}
+)
+BLOCKED_SERVICES: Final = frozenset(
+    {
+        "homeassistant.restart",
+        "homeassistant.stop",
+        "homeassistant.reload_all",
+        "recorder.purge",
+        "recorder.purge_entities",
+        "recorder.disable",
+        "update.install",
+    }
+)
+
+DEFAULT_ACCESS_TTL: Final = 15  # minutes
+DEFAULT_ACCESS_MAX_RESPONSE: Final = 64  # kB
+MAX_ACTIONS_PER_REQUEST: Final = 20
+AUDIT_LEN: Final = 25
+EVENT_ACTION: Final = "grok_bot_action"
+SERVICE_ROTATE_TOKEN: Final = "rotate_token"
+TOKEN_HEADER: Final = "X-Grok-Bot-Token"
+CALLBACK_PROTOCOL_VERSION: Final = 1
+
+DEFAULT_OPTIONS.update(
+    {
+        CONF_ACCESS_LEVEL: ACCESS_OFF,
+        CONF_ACCESS_ACTIONS: list(ALL_ACTIONS),
+        CONF_ACCESS_DOMAINS: [],
+        CONF_ACCESS_ENTITIES: [],
+        CONF_ACCESS_REQUIRE_PENDING: True,
+        CONF_ACCESS_TTL: DEFAULT_ACCESS_TTL,
+        CONF_ACCESS_NOTIFY: False,
+        CONF_ACCESS_MAX_RESPONSE: DEFAULT_ACCESS_MAX_RESPONSE,
+    }
+)
+
+# How Grok Bot reaches back into this instance.
+CONF_ACCESS_METHOD: Final = "access_method"
+METHOD_MCP: Final = "mcp"  # Home Assistant's own MCP Server integration (default)
+METHOD_WEBHOOK: Final = "webhook"  # this integration's token-protected access webhook
+METHOD_NONE: Final = "none"
+ACCESS_METHODS: Final = [METHOD_MCP, METHOD_WEBHOOK, METHOD_NONE]
+MCP_DOMAIN: Final = "mcp_server"
+MCP_PATH: Final = "/api/mcp"
+MCP_SETUP_URL: Final = "https://my.home-assistant.io/redirect/config_flow_start/?domain=mcp_server"
+ISSUE_MCP_MISSING: Final = "mcp_server_missing"
+
+# Awaiting-reply housekeeping: replies may happen in the Grok Bot app instead.
+CONF_REPLY_TIMEOUT: Final = "reply_timeout"
+DEFAULT_REPLY_TIMEOUT: Final = 10  # minutes, 0 = never
+STATUS_ANSWERED_ELSEWHERE: Final = "answered_elsewhere"
+STATUSES.append(STATUS_ANSWERED_ELSEWHERE)
+
+DEFAULT_OPTIONS.update(
+    {
+        CONF_ACCESS_METHOD: METHOD_MCP,
+        CONF_ACCESS_LEVEL: ACCESS_REPLY,
+        CONF_REPLY_TIMEOUT: DEFAULT_REPLY_TIMEOUT,
+    }
+)
+
+# HA-MCP (homeassistant-ai/ha-mcp, custom integration) is preferred over core
+# mcp_server when both are present.
+HA_MCP_DOMAIN: Final = "ha_mcp_tools"
+HA_MCP_SERVER_ENTRY_TYPE: Final = "server"
+HA_MCP_INSTALL_URL: Final = (
+    "https://my.home-assistant.io/redirect/hacs_repository/"
+    "?owner=homeassistant-ai&repository=ha-mcp&category=integration"
+)
+HA_MCP_SETUP_URL: Final = (
+    "https://my.home-assistant.io/redirect/config_flow_start/?domain=ha_mcp_tools"
+)
+PROVIDER_HA_MCP: Final = "ha_mcp"
+PROVIDER_MCP_SERVER: Final = "mcp_server"
+ISSUE_NOT_CONNECTED: Final = "not_connected"
+SETUP_NOTIFICATION_ID: Final = "grok_bot_setup_prompt_{}"
+SIGNAL_CONNECTED: Final = "grok_bot_connected"

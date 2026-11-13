@@ -122,6 +122,16 @@ async function newCard(config, hass) {
     c.editor_form = !!ed.querySelector("ha-form");
     c.custom_cards = (window.customCards || []).map((x) => x.type);
     c.stub = customElements.get("grok-bot-card").getStubConfig();
+
+    // Awaiting replies: a chip that presses "Mark replies handled".
+    const waiting = clone(F.states);
+    waiting["sensor.grok_bot_awaiting_reply"].state = "2";
+    waiting["button.grok_bot_mark_replies_handled"] = { entity_id: "button.grok_bot_mark_replies_handled", state: "unknown", last_updated: new Date().toISOString(), attributes: {} };
+    const wcard = await newCard({}, makeHass(waiting));
+    c.awaiting_chip = txt(q(wcard, '[data-action="handled"]'));
+    q(wcard, '[data-action="handled"]').click();
+    await flush();
+    c.handled_call = calls[calls.length - 1];
   } catch (err) {
     results.errors.push(String(err && err.stack || err));
   }

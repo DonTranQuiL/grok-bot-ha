@@ -17,6 +17,7 @@ from homeassistant.const import CONF_NAME
 from homeassistant.core import callback
 from homeassistant.data_entry_flow import section
 from homeassistant.helpers import selector
+from homeassistant.helpers.network import NoURLAvailableError, get_url
 from homeassistant.util import dt as dt_util
 import voluptuous as vol
 
@@ -28,7 +29,22 @@ from .api import (
     normalize_auth_header,
 )
 from .const import (
+    ACCESS_CONTROL,
+    ACCESS_FIX,
+    ACCESS_METHODS,
+    ACCESS_READ,
+    ACCESS_REPLY,
     ACTION_MODES,
+    ALL_ACTIONS,
+    CONF_ACCESS_ACTIONS,
+    CONF_ACCESS_DOMAINS,
+    CONF_ACCESS_ENTITIES,
+    CONF_ACCESS_LEVEL,
+    CONF_ACCESS_MAX_RESPONSE,
+    CONF_ACCESS_METHOD,
+    CONF_ACCESS_NOTIFY,
+    CONF_ACCESS_REQUIRE_PENDING,
+    CONF_ACCESS_TTL,
     CONF_AUTH_HEADER,
     CONF_AUTOMATIONS_ACTION,
     CONF_ENABLE_CONVERSATION,
@@ -56,6 +72,7 @@ from .const import (
     CONF_QUIET_HOURS,
     CONF_QUIET_START,
     CONF_REPAIRS_ACTION,
+    CONF_REPLY_TIMEOUT,
     CONF_SETUP_ACTION,
     CONF_STATE_ACTION,
     CONF_TEMPLATE_EVENT,
@@ -81,6 +98,9 @@ from .const import (
     LOGGER_MODE_ALL,
     LOGGER_MODE_ALLOW,
     LOGGER_MODE_DENY,
+    MCP_PATH,
+    METHOD_MCP,
+    METHOD_WEBHOOK,
     MODE_ADVANCED,
     MODE_SIMPLE,
     PAYLOAD_SCHEMA_VERSION,
@@ -88,9 +108,12 @@ from .const import (
     PRESET_OPTIONS,
     PRESETS,
 )
+from .mcp import detect_mcp, ha_mcp_installed, setup_links
+from .prompt import setup_prompt
 from .triggers import event_type_allowed
 
 CONF_SEND_TEST = "send_test"
+WEBHOOK_LEVELS = [ACCESS_REPLY, ACCESS_READ, ACCESS_CONTROL, ACCESS_FIX]
 CONF_REMOVE = "remove"
 CONF_FILTER_ENTITY = "filter_entity"
 SECTIONS = ("logs", "repairs", "unavailable", "automations", "setup")
@@ -121,6 +144,61 @@ def apply_preset(options: dict[str, Any], preset: str) -> dict[str, Any]:
     out[CONF_MODE] = MODE_SIMPLE
     out.update(PRESET_OPTIONS[preset])
     return out
+
+
+def access_step_id(hass) -> str:
+    """'access' when an MCP server is installed, else 'install_mcp' (install HA-MCP first)."""
+    mcp = detect_mcp(hass)
+    return "access" if mcp["provider"] else "install_mcp"
+
+
+def access_schema(step_id: str, options: dict[str, Any]) -> vol.Schema:
+    level = options.get(CONF_ACCESS_LEVEL)
+    level = level if level in WEBHOOK_LEVELS else ACCESS_REPLY
+    fields: dict[Any, Any] = {
+        vol.Required(
+            CONF_ACCESS_METHOD, default=options.get(CONF_ACCESS_METHOD) or METHOD_MCP
+        ): _select(ACCESS_METHODS, "access_method"),
+    }
+    if step_id == "access" or options.get(CONF_MODE) == MODE_ADVANCED:
+        fields[vol.Required(CONF_ACCESS_LEVEL, default=level)] = _select(
+            WEBHOOK_LEVELS, "access_level"
+        )
+    return vol.Schema(fields)
+
+
+def connect_placeholders(hass, webhook_url: str) -> dict[str, str]:
+    try:
+        external = get_url(hass, allow_internal=False, prefer_external=True)
+    except NoURLAvailableError:
+        external = None
+    mcp = detect_mcp(hass, external)
+    hint = mcp["connector_url_hint"] if mcp["provider"] == "ha_mcp" else None
+    return {
+        "name": hass.config.location_name or "Home",
+        "mcp_url": hint or "-",
+        "prompt": setup_prompt(hass, webhook_url=webhook_url, mcp_url=hint),
+    }
+
+
+def access_placeholders(hass, access_url: str | None = None) -> dict[str, str]:
+    """Detected MCP provider, connector URL hint and setup links for step texts."""
+    try:
+        external = get_url(hass, allow_internal=False, prefer_external=True)
+    except NoURLAvailableError:
+        external = None
+    mcp = detect_mcp(hass, external)
+    if mcp["provider"] is None:
+        status = "none"
+    else:
+        status = f"{mcp['provider']} ({'ready' if mcp['ready'] else 'not loaded'})"
+    return {
+        "mcp_status": status,
+        "connector_url": mcp["connector_url_hint"]
+        or f"{external or 'https://<your-external-or-nabu-casa-url>'}{MCP_PATH}",
+        "access_url": access_url or "-",
+        **setup_links(),
+    }
 
 
 def _select(options: list[str], key: str, multiple: bool = False, custom: bool = False):
@@ -177,6 +255,8 @@ class GrokBotConfigFlow(ConfigFlow, domain=DOMAIN):
 
     def __init__(self) -> None:
         self._data: dict[str, Any] = {}
+        self._options: dict[str, Any] = {}
+        self._reconfigure: tuple[str, dict[str, Any]] = ("", {})
 
     @staticmethod
     @callback
@@ -222,15 +302,49 @@ class GrokBotConfigFlow(ConfigFlow, domain=DOMAIN):
 
     async def async_step_preset(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         if user_input is not None:
-            options = apply_preset(dict(DEFAULT_OPTIONS), user_input[CONF_PRESET])
-            return self.async_create_entry(
-                title=self._data[CONF_NAME], data=self._data, options=options
-            )
+            self._options = apply_preset(dict(DEFAULT_OPTIONS), user_input[CONF_PRESET])
+            return await self.async_step_access()
         return self.async_show_form(
             step_id="preset",
             data_schema=vol.Schema(
                 {vol.Required(CONF_PRESET, default=PRESETS[0]): _select(PRESETS, "preset")}
             ),
+        )
+
+    async def async_step_access(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        """How Grok Bot reaches back in. HA-MCP is preferred; core mcp_server is a fallback."""
+        step_id = access_step_id(self.hass)
+        if user_input is not None:
+            self._options.update(user_input)
+            if ha_mcp_installed(self.hass):
+                return await self.async_step_connect()
+            return self._create()
+        return self.async_show_form(
+            step_id=step_id,
+            data_schema=access_schema(step_id, self._options),
+            description_placeholders=access_placeholders(self.hass),
+        )
+
+    async def async_step_install_mcp(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        return await self.async_step_access(user_input)
+
+    async def async_step_connect(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """'Connect it in Grok Bot' (only when HA-MCP is installed)."""
+        if user_input is not None:
+            return self._create()
+        return self.async_show_form(
+            step_id="connect",
+            data_schema=vol.Schema({}),
+            description_placeholders=connect_placeholders(self.hass, self._data[CONF_WEBHOOK_URL]),
+        )
+
+    def _create(self) -> ConfigFlowResult:
+        return self.async_create_entry(
+            title=self._data[CONF_NAME], data=self._data, options=self._options
         )
 
     async def async_step_reauth(self, entry_data: Mapping[str, Any]) -> ConfigFlowResult:
@@ -270,6 +384,26 @@ class GrokBotConfigFlow(ConfigFlow, domain=DOMAIN):
             errors=errors,
         )
 
+    async def async_step_reconfigure_connect(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Re-detected HA-MCP after a reconfigure: show the connect prompt again."""
+        if user_input is not None:
+            return self._finish_reconfigure()
+        return self.async_show_form(
+            step_id="reconfigure_connect",
+            data_schema=vol.Schema({}),
+            description_placeholders=connect_placeholders(
+                self.hass, self._reconfigure[1][CONF_WEBHOOK_URL]
+            ),
+        )
+
+    def _finish_reconfigure(self) -> ConfigFlowResult:
+        new_id, updates = self._reconfigure
+        return self.async_update_reload_and_abort(
+            self._get_reconfigure_entry(), unique_id=new_id, data_updates=updates
+        )
+
     async def async_step_reconfigure(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
@@ -287,14 +421,16 @@ class GrokBotConfigFlow(ConfigFlow, domain=DOMAIN):
             if error:
                 errors["base"] = error
             else:
-                return self.async_update_reload_and_abort(
-                    entry,
-                    unique_id=new_id,
-                    data_updates={
+                self._reconfigure = (
+                    new_id,
+                    {
                         CONF_WEBHOOK_URL: url,
                         CONF_AUTH_HEADER: normalize_auth_header(user_input[CONF_AUTH_HEADER]),
                     },
                 )
+                if ha_mcp_installed(self.hass):
+                    return await self.async_step_reconfigure_connect()
+                return self._finish_reconfigure()
         return self.async_show_form(
             step_id="reconfigure",
             data_schema=vol.Schema(
@@ -325,6 +461,11 @@ class GrokBotOptionsFlow(OptionsFlow):
     def _opts(self) -> dict[str, Any]:
         if not self._options:
             self._options = {**DEFAULT_OPTIONS, **self.config_entry.options}
+            if self.config_entry.options.get(CONF_ENABLE_INBOUND_WEBHOOK) and (
+                CONF_ACCESS_METHOD not in self.config_entry.options
+            ):
+                self._options[CONF_ACCESS_METHOD] = METHOD_WEBHOOK
+            self._options.pop(CONF_ENABLE_INBOUND_WEBHOOK, None)
             self._options[CONF_FILTERS] = dict(self._options[CONF_FILTERS])
         return self._options
 
@@ -333,6 +474,7 @@ class GrokBotOptionsFlow(OptionsFlow):
             menu = [
                 "preset",
                 "features",
+                "access",
                 "budget",
                 "forwarding",
                 "entity_filter",
@@ -342,7 +484,9 @@ class GrokBotOptionsFlow(OptionsFlow):
                 "finish",
             ]
         else:
-            menu = ["preset", "features", "budget", "advanced_mode", "finish"]
+            menu = ["preset", "features", "access", "budget", "advanced_mode", "finish"]
+        if ha_mcp_installed(self.hass):
+            menu.insert(menu.index("access") + 1, "connect")
         return self.async_show_menu(
             step_id="init",
             menu_options=menu,
@@ -389,7 +533,6 @@ class GrokBotOptionsFlow(OptionsFlow):
             self._opts.update(user_input)
             return await self.async_step_init()
         o = self._opts
-        webhook_id = self.config_entry.data.get(CONF_INBOUND_WEBHOOK_ID, "")
         return self.async_show_form(
             step_id="features",
             data_schema=vol.Schema(
@@ -398,16 +541,76 @@ class GrokBotOptionsFlow(OptionsFlow):
                     vol.Required(
                         CONF_ENABLE_CONVERSATION, default=o[CONF_ENABLE_CONVERSATION]
                     ): bool,
-                    vol.Required(
-                        CONF_ENABLE_INBOUND_WEBHOOK,
-                        default=o[CONF_ENABLE_INBOUND_WEBHOOK],
-                    ): bool,
                     vol.Required(CONF_INCLUDE_ATTRIBUTES, default=o[CONF_INCLUDE_ATTRIBUTES]): bool,
                 }
             ),
-            description_placeholders={
-                "webhook_path": webhook.async_generate_path(webhook_id) if webhook_id else "-"
-            },
+        )
+
+    async def async_step_access(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        """Re-detects HA-MCP / MCP Server each time; webhook settings in Advanced."""
+        advanced = self._opts[CONF_MODE] == MODE_ADVANCED
+        step_id = access_step_id(self.hass)
+        if user_input is not None:
+            values = {k: int(v) if isinstance(v, float) else v for k, v in user_input.items()}
+            self._opts.update(values)
+            if ha_mcp_installed(self.hass):
+                return await self.async_step_connect()
+            return await self.async_step_init()
+        o = self._opts
+        schema = access_schema(step_id, o)
+        fields: dict[Any, Any] = dict(schema.schema)
+        fields[vol.Required(CONF_REPLY_TIMEOUT, default=o[CONF_REPLY_TIMEOUT])] = _num(
+            0, 1440, unit="min"
+        )
+        if advanced:
+            fields.update(
+                {
+                    vol.Required(
+                        CONF_ACCESS_ACTIONS, default=list(o[CONF_ACCESS_ACTIONS])
+                    ): _select(ALL_ACTIONS, "access_action", multiple=True),
+                    vol.Required(
+                        CONF_ACCESS_DOMAINS, default=list(o[CONF_ACCESS_DOMAINS])
+                    ): _select([], "access_domains", multiple=True, custom=True),
+                    vol.Required(
+                        CONF_ACCESS_ENTITIES, default=list(o[CONF_ACCESS_ENTITIES])
+                    ): selector.EntitySelector(selector.EntitySelectorConfig(multiple=True)),
+                    vol.Required(
+                        CONF_ACCESS_REQUIRE_PENDING, default=o[CONF_ACCESS_REQUIRE_PENDING]
+                    ): bool,
+                    vol.Required(CONF_ACCESS_TTL, default=o[CONF_ACCESS_TTL]): _num(
+                        1, 1440, unit="min"
+                    ),
+                    vol.Required(CONF_ACCESS_NOTIFY, default=o[CONF_ACCESS_NOTIFY]): bool,
+                    vol.Required(
+                        CONF_ACCESS_MAX_RESPONSE, default=o[CONF_ACCESS_MAX_RESPONSE]
+                    ): _num(4, 1024, unit="kB"),
+                }
+            )
+        data = getattr(self.config_entry, "runtime_data", None)
+        access_url = data.hub.access.url if data and data.hub.access.enabled else None
+        return self.async_show_form(
+            step_id=step_id,
+            data_schema=vol.Schema(fields),
+            description_placeholders=access_placeholders(self.hass, access_url),
+        )
+
+    async def async_step_install_mcp(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        return await self.async_step_access(user_input)
+
+    async def async_step_connect(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """The 'Connect it in Grok Bot' prompt (only when HA-MCP is installed)."""
+        if user_input is not None:
+            return await self.async_step_init()
+        return self.async_show_form(
+            step_id="connect",
+            data_schema=vol.Schema({}),
+            description_placeholders=connect_placeholders(
+                self.hass, self.config_entry.data[CONF_WEBHOOK_URL]
+            ),
         )
 
     async def async_step_budget(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:

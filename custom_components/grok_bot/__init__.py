@@ -1,8 +1,8 @@
 """Grok Bot for Home Assistant.
 
 Sends opt-in tasks, events and problems to a Grok Bot routine webhook. Grok Bot
-acts back in Home Assistant through its own connector and answers with the
-`grok_bot.reply` action (or the optional inbound webhook).
+acts back in Home Assistant through its own connector, or through the optional
+token-protected access webhook, and answers with `grok_bot.reply`.
 """
 
 from __future__ import annotations
@@ -12,26 +12,35 @@ import hashlib
 import logging
 from pathlib import Path
 
-from aiohttp import web
-from homeassistant.components import webhook
 from homeassistant.components.frontend import add_extra_js_url
 from homeassistant.components.http import StaticPathConfig
-from homeassistant.config_entries import ConfigEntry
+from homeassistant.config_entries import (
+    SIGNAL_CONFIG_ENTRY_CHANGED,
+    ConfigEntry,
+    ConfigEntryChange,
+)
 from homeassistant.const import Platform
-from homeassistant.core import HomeAssistant
-from homeassistant.helpers import config_validation as cv
+from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers import config_validation as cv, issue_registry as ir
+from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.typing import ConfigType
 
 from .api import GrokBotClient
 from .const import (
+    CONF_ACCESS_METHOD,
     CONF_AUTH_HEADER,
-    CONF_ENABLE_INBOUND_WEBHOOK,
-    CONF_INBOUND_WEBHOOK_ID,
     CONF_WEBHOOK_URL,
     DOMAIN,
+    HA_MCP_INSTALL_URL,
     INTEGRATION_VERSION,
+    ISSUE_MCP_MISSING,
+    ISSUE_NOT_CONNECTED,
+    MCP_PATH,
+    METHOD_MCP,
+    SIGNAL_CONNECTED,
 )
 from .hub import GrokBotHub
+from .mcp import MCP_DOMAINS, ha_mcp_installed, setup_links
 from .services import async_setup_services
 from .triggers import TriggerManager
 
@@ -86,23 +95,68 @@ async def async_setup_entry(hass: HomeAssistant, entry: GrokBotConfigEntry) -> b
     triggers = TriggerManager(hass, entry, hub)
     entry.runtime_data = GrokBotData(hub, triggers)
 
-    if hub.options[CONF_ENABLE_INBOUND_WEBHOOK] and (
-        webhook_id := entry.data.get(CONF_INBOUND_WEBHOOK_ID)
-    ):
-        webhook.async_register(
-            hass,
-            DOMAIN,
-            f"Grok Bot replies ({entry.title})",
-            webhook_id,
-            _make_webhook_handler(entry),
-            allowed_methods=["POST"],
-        )
-        hub.inbound_webhook_url = webhook.async_generate_path(webhook_id)
+    await hub.access.async_start()
+    _async_update_mcp_issue(hass, hub)
+
+    @callback
+    def _mcp_changed(change: ConfigEntryChange, changed: ConfigEntry) -> None:
+        if changed.domain in MCP_DOMAINS:
+            _async_update_mcp_issue(hass, hub)
+            hub.notify()
+
+    entry.async_on_unload(async_dispatcher_connect(hass, SIGNAL_CONFIG_ENTRY_CHANGED, _mcp_changed))
+
+    @callback
+    def _connected(entry_id: str) -> None:
+        if entry_id == entry.entry_id:
+            _async_update_connected_issue(hass, hub)
+
+    entry.async_on_unload(async_dispatcher_connect(hass, SIGNAL_CONNECTED, _connected))
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     triggers.async_start()
     entry.async_on_unload(entry.add_update_listener(_async_update_listener))
     return True
+
+
+@callback
+def _async_update_mcp_issue(hass: HomeAssistant, hub: GrokBotHub) -> None:
+    """Repair issue pointing at the MCP Server setup while it is missing."""
+    issue_id = f"{ISSUE_MCP_MISSING}_{hub.entry.entry_id}"
+    if hub.options[CONF_ACCESS_METHOD] == METHOD_MCP and not hub.mcp_ready:
+        ir.async_create_issue(
+            hass,
+            DOMAIN,
+            issue_id,
+            is_fixable=False,
+            is_persistent=False,
+            severity=ir.IssueSeverity.WARNING,
+            translation_key=ISSUE_MCP_MISSING,
+            translation_placeholders={**setup_links(), "mcp_path": MCP_PATH},
+            learn_more_url=HA_MCP_INSTALL_URL,
+        )
+    else:
+        ir.async_delete_issue(hass, DOMAIN, issue_id)
+    _async_update_connected_issue(hass, hub)
+
+
+@callback
+def _async_update_connected_issue(hass: HomeAssistant, hub: GrokBotHub) -> None:
+    """'Grok Bot not connected yet' while HA-MCP is installed and no reply arrived."""
+    issue_id = f"{ISSUE_NOT_CONNECTED}_{hub.entry.entry_id}"
+    if ha_mcp_installed(hass) and not hub.connected:
+        ir.async_create_issue(
+            hass,
+            DOMAIN,
+            issue_id,
+            is_fixable=False,
+            is_persistent=False,
+            severity=ir.IssueSeverity.WARNING,
+            translation_key=ISSUE_NOT_CONNECTED,
+            translation_placeholders={"name": hub.entry.title},
+        )
+    else:
+        ir.async_delete_issue(hass, DOMAIN, issue_id)
 
 
 async def _async_update_listener(hass: HomeAssistant, entry: ConfigEntry) -> None:
@@ -113,28 +167,9 @@ async def async_unload_entry(hass: HomeAssistant, entry: GrokBotConfigEntry) -> 
     """Unload a config entry."""
     data = entry.runtime_data
     data.triggers.async_stop()
-    if webhook_id := entry.data.get(CONF_INBOUND_WEBHOOK_ID):
-        webhook.async_unregister(hass, webhook_id)
+    data.hub.access.async_stop()
+    ir.async_delete_issue(hass, DOMAIN, f"{ISSUE_MCP_MISSING}_{entry.entry_id}")
+    ir.async_delete_issue(hass, DOMAIN, f"{ISSUE_NOT_CONNECTED}_{entry.entry_id}")
     unloaded = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     await data.hub.async_shutdown()
     return unloaded
-
-
-def _make_webhook_handler(entry: GrokBotConfigEntry):
-    async def _handle(hass: HomeAssistant, webhook_id: str, request: web.Request) -> web.Response:
-        try:
-            body = await request.json()
-        except ValueError:
-            return web.json_response({"error": "invalid_json"}, status=400)
-        if not isinstance(body, dict) or not str(body.get("message", "")).strip():
-            return web.json_response({"error": "message_required"}, status=400)
-        result = await entry.runtime_data.hub.async_handle_reply(
-            str(body["message"]),
-            conversation_id=body.get("conversation_id"),
-            title=body.get("title"),
-            data=body.get("data") if isinstance(body.get("data"), dict) else None,
-            reply_to=body.get("reply_to"),
-        )
-        return web.json_response({"ok": True, **result})
-
-    return _handle

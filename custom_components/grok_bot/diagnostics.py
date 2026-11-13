@@ -10,7 +10,14 @@ from homeassistant.core import HomeAssistant
 from . import GrokBotConfigEntry
 from .const import CONF_AUTH_HEADER, CONF_INBOUND_WEBHOOK_ID, CONF_WEBHOOK_URL
 
-TO_REDACT = {CONF_AUTH_HEADER, CONF_WEBHOOK_URL, CONF_INBOUND_WEBHOOK_ID, "inbound_webhook_url"}
+TO_REDACT = {
+    CONF_AUTH_HEADER,
+    CONF_WEBHOOK_URL,
+    CONF_INBOUND_WEBHOOK_ID,
+    "access_url",
+    "access_token",
+    "token",
+}
 
 
 async def async_get_config_entry_diagnostics(
@@ -36,7 +43,12 @@ async def async_get_config_entry_diagnostics(
                 "history": [
                     {k: v for k, v in item.items() if k != "message"} for item in hub.history
                 ],
-                "inbound_webhook_url": hub.inbound_webhook_url,
+                "access_level": hub.access.level,
+                "access_url": hub.access.url,
+                "access_url_source": hub.access.url_source,
+                "access_token": hub.access.token,
+                "open_sessions": len(hub.access.sessions),
+                "audit": list(hub.access.audit),
             },
             TO_REDACT,
         ),

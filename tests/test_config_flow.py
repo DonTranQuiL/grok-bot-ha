@@ -51,7 +51,14 @@ async def test_user_flow_creates_entry_with_preset(hass, webhook_mock):
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"], {CONF_PRESET: "errors_repairs_diagnose"}
     )
+    # no MCP server installed: "Install HA-MCP first", continue reply-only
+    assert result["step_id"] == "install_mcp"
+    assert "ha_mcp_install_url" in result["description_placeholders"]
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"access_method": "mcp"}
+    )
     assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert result["options"]["access_level"] == "reply"
     assert result["data"][CONF_AUTH_HEADER] == AUTH
     assert result["data"]["inbound_webhook_id"]
     opts = result["options"]
@@ -71,6 +78,9 @@ async def test_ask_only_preset_is_quiet(hass, webhook_mock):
     assert posted(webhook_mock) == []  # no ping when the test is skipped
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"], {CONF_PRESET: "ask_only"}
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"access_method": "mcp"}
     )
     opts = result["options"]
     assert not any(

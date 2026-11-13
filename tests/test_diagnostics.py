@@ -10,7 +10,7 @@ from .conftest import AUTH, URL, posted, setup_entry
 
 
 async def test_diagnostics_redacts_secrets(hass, webhook_mock):
-    entry = await setup_entry(hass, enable_inbound_webhook=True)
+    entry = await setup_entry(hass, access_method="webhook")
     await hass.services.async_call(
         "grok_bot", "ask", {"message": "private text"}, blocking=True, return_response=True
     )

@@ -41,6 +41,38 @@
           "auth_header": "Waarde van de Authorization-header",
           "send_test": "Testping versturen (telt als één Grok Bot-run)"
         }
+      },
+      "access": {
+        "title": "Toegang voor Grok Bot",
+        "description": "Grok Bot antwoordt en handelt in Home Assistant via een MCP-connector die je toevoegt in de Grok Bot-app. Gevonden: **{mcp_status}**.\n\n**Aanbevolen: HA-MCP.** Kopieer de externe URL uit HA-MCP → Configureren en voeg hem toe als Home Assistant-connector in de Grok Bot-app.\n**Alternatief: core MCP Server.** Connector-URL `{connector_url}` met OAuth of een langlevend toegangstoken. De LLM-API die je daar kiest (Assist = alleen blootgestelde entiteiten) bepaalt wat Grok Bot mag aanraken.\n\nDe URL moet vanaf internet bereikbaar zijn (Nabu Casa of je externe URL). De toegangs-webhook is een geavanceerd alternatief; het niveau geldt alleen voor die webhook (huidige URL: {access_url}).",
+        "data": {
+          "access_method": "Toegangsmethode",
+          "access_level": "Niveau toegangs-webhook"
+        },
+        "data_description": {
+          "access_method": "HA-MCP (of core MCP Server) is standaard: Grok Bot gebruikt je MCP-connector en roept grok_bot.reply aan. De toegangs-webhook is voor systemen zonder MCP-connector.",
+          "access_level": "Alleen voor de toegangs-webhook. Herstarten, Supervisor/host-acties en integraties verwijderen zijn altijd geblokkeerd."
+        }
+      },
+      "install_mcp": {
+        "title": "Installeer eerst HA-MCP",
+        "description": "**Installeer eerst HA-MCP.** Zonder MCP-connector ontvangt Grok Bot je berichten wel, maar kan hij niets beantwoorden of oplossen in Home Assistant.\n\n1. [Installeer HA-MCP]({ha_mcp_install_url}) via HACS / de Marketplace en herstart Home Assistant.\n2. [Voeg de HA-MCP-integratie toe]({ha_mcp_setup_url}) en maak de server-entry aan.\n3. Open daarna Grok Bot-opties → Toegang opnieuw: HA-MCP wordt gevonden en je krijgt een kant-en-klare prompt om hem in de Grok Bot-app te koppelen.\n\nLiever de ingebouwde optie? [Stel core MCP Server in]({mcp_setup_url}). Je kunt nu doorgaan: Grok Bot blijft alleen-antwoorden tot er een connector is.",
+        "data": {
+          "access_method": "Toegangsmethode",
+          "access_level": "Niveau toegangs-webhook"
+        },
+        "data_description": {
+          "access_method": "HA-MCP (of core MCP Server) is standaard: Grok Bot gebruikt je MCP-connector en roept grok_bot.reply aan. De toegangs-webhook is voor systemen zonder MCP-connector.",
+          "access_level": "Alleen voor de toegangs-webhook. Herstarten, Supervisor/host-acties en integraties verwijderen zijn altijd geblokkeerd."
+        }
+      },
+      "connect": {
+        "title": "Koppel in Grok Bot",
+        "description": "HA-MCP is geinstalleerd. **Koppel deze Home Assistant (\"{name}\") eerst in de Grok Bot-app voordat je Grok Bot gebruikt.**\n\nKopieer de prompt hieronder en stuur hem naar je Grok Bot. Die koppelt deze HA via HA-MCP (`{mcp_url}`), stelt de webhook-routine in met veilige regels en antwoordt \"Connected\". Tot die tijd blijft de reparatie \"Grok Bot nog niet gekoppeld\" open. Met de knop \"Grok Bot-setupprompt tonen\" zie je deze prompt opnieuw.\n\n```\n{prompt}\n```"
+      },
+      "reconfigure_connect": {
+        "title": "Koppel in Grok Bot",
+        "description": "HA-MCP is geinstalleerd. **Koppel deze Home Assistant (\"{name}\") eerst in de Grok Bot-app voordat je Grok Bot gebruikt.**\n\nKopieer de prompt hieronder en stuur hem naar je Grok Bot. Die koppelt deze HA via HA-MCP (`{mcp_url}`), stelt de webhook-routine in met veilige regels en antwoordt \"Connected\". Tot die tijd blijft de reparatie \"Grok Bot nog niet gekoppeld\" open. Met de knop \"Grok Bot-setupprompt tonen\" zie je deze prompt opnieuw.\n\n```\n{prompt}\n```"
       }
     },
     "error": {
@@ -62,7 +94,7 @@
         "description": "Modus: {mode}. Voorinstelling: {preset}. Elke verzending kost Grok Bot-verbruik en telt mee voor je budget.",
         "menu_options": {
           "preset": "Voorinstelling (eenvoudig)",
-          "features": "Functies (notify, Assist, inkomende webhook)",
+          "features": "Functies (notify, Assist)",
           "budget": "Budget, limieten en stille uren",
           "forwarding": "Status- en eventdoorsturing",
           "entity_filter": "Filters per entiteit",
@@ -70,7 +102,9 @@
           "templates": "Berichtsjablonen",
           "advanced_mode": "Naar Geavanceerde modus",
           "simple_mode": "Naar Eenvoudige modus",
-          "finish": "Opslaan en sluiten"
+          "finish": "Opslaan en sluiten",
+          "access": "Toegang (HA-MCP / MCP Server / webhook, antwoord-time-out)",
+          "connect": "Koppel in Grok Bot (setupprompt)"
         }
       },
       "preset": {
@@ -82,16 +116,13 @@
       },
       "features": {
         "title": "Functies",
-        "description": "Pad van de inkomende webhook (alleen als ingeschakeld, POST JSON met `message`): {webhook_path}",
         "data": {
           "enable_notify": "Notify-entiteit (notify.send_message naar Grok Bot)",
           "enable_conversation": "Assist-gespreksagent",
-          "enable_inbound_webhook": "Inkomende antwoord-webhook",
           "include_attributes": "Entiteitsattributen meesturen als context"
         },
         "data_description": {
           "enable_conversation": "Assist antwoordt direct dat het bericht is verstuurd; het echte antwoord van Grok Bot komt later.",
-          "enable_inbound_webhook": "Grok Bot kan antwoorden ook naar een geheime Home Assistant-webhook sturen, naast grok_bot.reply.",
           "include_attributes": "Uit stuurt alleen statussen, zodat berichten klein blijven."
         }
       },
@@ -198,6 +229,52 @@
           "template_event": "Bericht bij event",
           "template_issue": "Bericht bij probleem"
         }
+      },
+      "access": {
+        "title": "Toegang voor Grok Bot",
+        "description": "Grok Bot antwoordt en handelt in Home Assistant via een MCP-connector die je toevoegt in de Grok Bot-app. Gevonden: **{mcp_status}**.\n\n**Aanbevolen: HA-MCP.** Kopieer de externe URL uit HA-MCP → Configureren en voeg hem toe als Home Assistant-connector in de Grok Bot-app.\n**Alternatief: core MCP Server.** Connector-URL `{connector_url}` met OAuth of een langlevend toegangstoken. De LLM-API die je daar kiest (Assist = alleen blootgestelde entiteiten) bepaalt wat Grok Bot mag aanraken.\n\nDe URL moet vanaf internet bereikbaar zijn (Nabu Casa of je externe URL). De toegangs-webhook is een geavanceerd alternatief; het niveau geldt alleen voor die webhook (huidige URL: {access_url}).",
+        "data": {
+          "access_method": "Toegangsmethode",
+          "access_level": "Niveau toegangs-webhook",
+          "reply_timeout": "Antwoord-time-out",
+          "access_actions": "Toegestane webhook-acties",
+          "access_domains": "Toegestane actiedomeinen (leeg = alles wat niet geblokkeerd is)",
+          "access_entities": "Toegestane entiteiten (leeg = alle)",
+          "access_require_pending": "Alleen zolang een verzoek open staat",
+          "access_ttl": "Sessieduur",
+          "access_notify": "Meld elke actie",
+          "access_max_response_kb": "Maximale antwoordgrootte"
+        },
+        "data_description": {
+          "access_method": "HA-MCP (of core MCP Server) is standaard: Grok Bot gebruikt je MCP-connector en roept grok_bot.reply aan. De toegangs-webhook is voor systemen zonder MCP-connector.",
+          "access_level": "Alleen voor de toegangs-webhook. Herstarten, Supervisor/host-acties en integraties verwijderen zijn altijd geblokkeerd.",
+          "reply_timeout": "Na zoveel minuten telt een wachtend verzoek als beantwoord in de Grok Bot-app (0 = nooit)."
+        }
+      },
+      "install_mcp": {
+        "title": "Installeer eerst HA-MCP",
+        "description": "**Installeer eerst HA-MCP.** Zonder MCP-connector ontvangt Grok Bot je berichten wel, maar kan hij niets beantwoorden of oplossen in Home Assistant.\n\n1. [Installeer HA-MCP]({ha_mcp_install_url}) via HACS / de Marketplace en herstart Home Assistant.\n2. [Voeg de HA-MCP-integratie toe]({ha_mcp_setup_url}) en maak de server-entry aan.\n3. Open daarna Grok Bot-opties → Toegang opnieuw: HA-MCP wordt gevonden en je krijgt een kant-en-klare prompt om hem in de Grok Bot-app te koppelen.\n\nLiever de ingebouwde optie? [Stel core MCP Server in]({mcp_setup_url}). Je kunt nu doorgaan: Grok Bot blijft alleen-antwoorden tot er een connector is.",
+        "data": {
+          "access_method": "Toegangsmethode",
+          "access_level": "Niveau toegangs-webhook",
+          "reply_timeout": "Antwoord-time-out",
+          "access_actions": "Toegestane webhook-acties",
+          "access_domains": "Toegestane actiedomeinen (leeg = alles wat niet geblokkeerd is)",
+          "access_entities": "Toegestane entiteiten (leeg = alle)",
+          "access_require_pending": "Alleen zolang een verzoek open staat",
+          "access_ttl": "Sessieduur",
+          "access_notify": "Meld elke actie",
+          "access_max_response_kb": "Maximale antwoordgrootte"
+        },
+        "data_description": {
+          "access_method": "HA-MCP (of core MCP Server) is standaard: Grok Bot gebruikt je MCP-connector en roept grok_bot.reply aan. De toegangs-webhook is voor systemen zonder MCP-connector.",
+          "access_level": "Alleen voor de toegangs-webhook. Herstarten, Supervisor/host-acties en integraties verwijderen zijn altijd geblokkeerd.",
+          "reply_timeout": "Na zoveel minuten telt een wachtend verzoek als beantwoord in de Grok Bot-app (0 = nooit)."
+        }
+      },
+      "connect": {
+        "title": "Koppel in Grok Bot",
+        "description": "HA-MCP is geinstalleerd. **Koppel deze Home Assistant (\"{name}\") eerst in de Grok Bot-app voordat je Grok Bot gebruikt.**\n\nKopieer de prompt hieronder en stuur hem naar je Grok Bot. Die koppelt deze HA via HA-MCP (`{mcp_url}`), stelt de webhook-routine in met veilige regels en antwoordt \"Connected\". Tot die tijd blijft de reparatie \"Grok Bot nog niet gekoppeld\" open. Met de knop \"Grok Bot-setupprompt tonen\" zie je deze prompt opnieuw.\n\n```\n{prompt}\n```"
       }
     },
     "error": {
@@ -237,6 +314,35 @@
         "allow": "Alleen deze loggers",
         "deny": "Alle behalve deze loggers"
       }
+    },
+    "access_method": {
+      "options": {
+        "mcp": "MCP-connector (HA-MCP aanbevolen, of core MCP Server)",
+        "webhook": "Toegangs-webhook van deze integratie (Geavanceerd)",
+        "none": "Geen toegang (Grok Bot kan niet in Home Assistant antwoorden)"
+      }
+    },
+    "access_level": {
+      "options": {
+        "reply": "Alleen antwoorden",
+        "read": "Lezen (statussen, geschiedenis, logs, reparaties)",
+        "control": "Bedienen (acties op toegestane entiteiten)",
+        "fix": "Oplossen (ook integraties herladen, reparaties negeren, entiteiten inschakelen)"
+      }
+    },
+    "access_action": {
+      "options": {
+        "reply": "Antwoorden",
+        "get_states": "Statussen lezen",
+        "get_history": "Geschiedenis lezen",
+        "list_repairs": "Reparaties tonen",
+        "get_logs": "Logs lezen",
+        "list_entries": "Integraties tonen",
+        "call_service": "Acties uitvoeren",
+        "reload_entry": "Integratie herladen",
+        "ignore_repair": "Reparatie negeren",
+        "enable_entity": "Entiteit inschakelen"
+      }
     }
   },
   "entity": {
@@ -255,7 +361,8 @@
           "dropped_paused": "Verworpen (gepauzeerd)",
           "dropped_cooldown": "Verworpen (afkoeltijd)",
           "dropped_quiet_hours": "Verworpen (stille uren)",
-          "dropped_too_large": "Verworpen (te groot)"
+          "dropped_too_large": "Verworpen (te groot)",
+          "answered_elsewhere": "Beantwoord in Grok Bot-app"
         }
       },
       "last_sent": {
@@ -278,6 +385,21 @@
       },
       "pending": {
         "name": "Wacht op antwoord"
+      },
+      "access_method": {
+        "name": "Toegangsmethode",
+        "state": {
+          "ha_mcp": "HA-MCP",
+          "mcp_server": "MCP Server",
+          "webhook": "Toegangs-webhook",
+          "none": "Geen"
+        }
+      },
+      "access_url": {
+        "name": "URL toegangs-webhook"
+      },
+      "last_action": {
+        "name": "Laatste Grok Bot-actie"
       }
     },
     "switch": {
@@ -297,6 +419,15 @@
       },
       "reset_budget": {
         "name": "Budgettellers resetten"
+      },
+      "rotate_token": {
+        "name": "Toegangstoken vernieuwen"
+      },
+      "mark_handled": {
+        "name": "Antwoorden als afgehandeld markeren"
+      },
+      "setup_prompt": {
+        "name": "Grok Bot-setupprompt tonen"
       }
     }
   },
@@ -578,6 +709,26 @@
           "description": "Alleen nodig als je meer dan één Grok Bot-item hebt."
         }
       }
+    },
+    "rotate_token": {
+      "name": "Toegangstoken vernieuwen",
+      "description": "Maakt een nieuw token voor de toegangs-webhook; het oude werkt direct niet meer.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Configuratie-entry",
+          "description": "Alleen nodig bij meer dan een Grok Bot-entry."
+        }
+      }
+    }
+  },
+  "issues": {
+    "mcp_server_missing": {
+      "title": "Installeer HA-MCP zodat Grok Bot kan antwoorden",
+      "description": "Er is geen MCP-server gevonden, dus Grok Bot kan niet antwoorden of handelen in Home Assistant. [Installeer HA-MCP]({ha_mcp_install_url}) (aanbevolen) en [voeg het toe]({ha_mcp_setup_url}), of [stel core MCP Server in]({mcp_setup_url}) (connectorpad `{mcp_path}`). Open daarna Grok Bot-opties → Toegang."
+    },
+    "not_connected": {
+      "title": "Grok Bot nog niet gekoppeld",
+      "description": "HA-MCP is geinstalleerd, maar \"{name}\" heeft nog geen antwoord van Grok Bot ontvangen. Druk op de knop \"Grok Bot-setupprompt tonen\" (of open opties → Koppel in Grok Bot), stuur de prompt naar je Grok Bot en wacht op \"Connected\". Deze reparatie verdwijnt bij het eerste grok_bot.reply."
     }
   }
 }

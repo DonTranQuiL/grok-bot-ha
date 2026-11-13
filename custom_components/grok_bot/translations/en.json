@@ -41,6 +41,38 @@
           "auth_header": "Authorization header value",
           "send_test": "Send a test ping (counts as one Grok Bot run)"
         }
+      },
+      "access": {
+        "title": "Access for Grok Bot",
+        "description": "Grok Bot answers and acts in Home Assistant through an MCP connector you add in the Grok Bot app. Detected: **{mcp_status}**.\n\n**Recommended: HA-MCP.** Copy the remote URL from HA-MCP → Configure and add it as a Home Assistant connector in the Grok Bot app.\n**Fallback: core MCP Server.** Connector URL `{connector_url}` with OAuth or a long-lived access token. The LLM API you pick there (Assist = only exposed entities) decides what Grok Bot can touch.\n\nThe URL must be reachable from the internet (Nabu Casa or your external URL). The access webhook is an Advanced alternative; its level only applies to that webhook (current URL: {access_url}).",
+        "data": {
+          "access_method": "Access method",
+          "access_level": "Access webhook level"
+        },
+        "data_description": {
+          "access_method": "HA-MCP (or core MCP Server) is the default: Grok Bot uses your MCP connector and calls grok_bot.reply. The access webhook is for instances without an MCP connector.",
+          "access_level": "Only used by the access webhook. Restarts, Supervisor/host actions and deleting integrations are always blocked."
+        }
+      },
+      "install_mcp": {
+        "title": "Install HA-MCP first",
+        "description": "**Install HA-MCP first.** Without an MCP connector Grok Bot can receive your messages but can't answer or fix anything in Home Assistant.\n\n1. [Install HA-MCP]({ha_mcp_install_url}) via HACS / the Marketplace and restart Home Assistant.\n2. [Add the HA-MCP integration]({ha_mcp_setup_url}) and create its server entry.\n3. Open Grok Bot's options → Access again: it detects HA-MCP and shows a ready-to-paste prompt to connect it in the Grok Bot app.\n\nPrefer the built-in option? [Set up core MCP Server]({mcp_setup_url}) instead. You can continue now: Grok Bot stays reply-only until a connector is set up.",
+        "data": {
+          "access_method": "Access method",
+          "access_level": "Access webhook level"
+        },
+        "data_description": {
+          "access_method": "HA-MCP (or core MCP Server) is the default: Grok Bot uses your MCP connector and calls grok_bot.reply. The access webhook is for instances without an MCP connector.",
+          "access_level": "Only used by the access webhook. Restarts, Supervisor/host actions and deleting integrations are always blocked."
+        }
+      },
+      "connect": {
+        "title": "Connect it in Grok Bot",
+        "description": "HA-MCP is installed. **Before you use Grok Bot, connect this Home Assistant (\"{name}\") in the Grok Bot app.**\n\nCopy the prompt below and send it to your Grok Bot. It connects this HA through HA-MCP (`{mcp_url}`), sets up the webhook routine with safe rules and replies \"Connected\". Until then a \"Grok Bot not connected yet\" repair stays open. You can show this prompt again with the \"Show Grok Bot setup prompt\" button.\n\n```\n{prompt}\n```"
+      },
+      "reconfigure_connect": {
+        "title": "Connect it in Grok Bot",
+        "description": "HA-MCP is installed. **Before you use Grok Bot, connect this Home Assistant (\"{name}\") in the Grok Bot app.**\n\nCopy the prompt below and send it to your Grok Bot. It connects this HA through HA-MCP (`{mcp_url}`), sets up the webhook routine with safe rules and replies \"Connected\". Until then a \"Grok Bot not connected yet\" repair stays open. You can show this prompt again with the \"Show Grok Bot setup prompt\" button.\n\n```\n{prompt}\n```"
       }
     },
     "error": {
@@ -62,7 +94,7 @@
         "description": "Mode: {mode}. Preset: {preset}. Every send costs Grok Bot usage and counts toward your budget.",
         "menu_options": {
           "preset": "Preset (simple setup)",
-          "features": "Features (notify, Assist, inbound webhook)",
+          "features": "Features (notify, Assist)",
           "budget": "Budget, rate limits and quiet hours",
           "forwarding": "State and event forwarding",
           "entity_filter": "Per-entity filters",
@@ -70,7 +102,9 @@
           "templates": "Message templates",
           "advanced_mode": "Switch to Advanced mode",
           "simple_mode": "Switch to Simple mode",
-          "finish": "Save and close"
+          "finish": "Save and close",
+          "access": "Access (HA-MCP / MCP Server / webhook, reply timeout)",
+          "connect": "Connect it in Grok Bot (setup prompt)"
         }
       },
       "preset": {
@@ -82,16 +116,13 @@
       },
       "features": {
         "title": "Features",
-        "description": "Inbound webhook path (only when enabled, POST JSON with `message`): {webhook_path}",
         "data": {
           "enable_notify": "Notify entity (notify.send_message to Grok Bot)",
           "enable_conversation": "Assist conversation agent",
-          "enable_inbound_webhook": "Inbound reply webhook",
           "include_attributes": "Attach entity attributes to context"
         },
         "data_description": {
           "enable_conversation": "Assist answers right away that the message was sent; Grok Bot's real answer arrives later.",
-          "enable_inbound_webhook": "Lets Grok Bot post replies to a secret Home Assistant webhook as well as calling grok_bot.reply.",
           "include_attributes": "Off sends only states, which keeps payloads small."
         }
       },
@@ -198,6 +229,52 @@
           "template_event": "Event message",
           "template_issue": "Problem message"
         }
+      },
+      "access": {
+        "title": "Access for Grok Bot",
+        "description": "Grok Bot answers and acts in Home Assistant through an MCP connector you add in the Grok Bot app. Detected: **{mcp_status}**.\n\n**Recommended: HA-MCP.** Copy the remote URL from HA-MCP → Configure and add it as a Home Assistant connector in the Grok Bot app.\n**Fallback: core MCP Server.** Connector URL `{connector_url}` with OAuth or a long-lived access token. The LLM API you pick there (Assist = only exposed entities) decides what Grok Bot can touch.\n\nThe URL must be reachable from the internet (Nabu Casa or your external URL). The access webhook is an Advanced alternative; its level only applies to that webhook (current URL: {access_url}).",
+        "data": {
+          "access_method": "Access method",
+          "access_level": "Access webhook level",
+          "reply_timeout": "Reply timeout",
+          "access_actions": "Allowed webhook actions",
+          "access_domains": "Allowed action domains (empty = all not blocked)",
+          "access_entities": "Allowed entities (empty = all)",
+          "access_require_pending": "Only while a request is open",
+          "access_ttl": "Session length",
+          "access_notify": "Notify me of every action",
+          "access_max_response_kb": "Max response size"
+        },
+        "data_description": {
+          "access_method": "HA-MCP (or core MCP Server) is the default: Grok Bot uses your MCP connector and calls grok_bot.reply. The access webhook is for instances without an MCP connector.",
+          "access_level": "Only used by the access webhook. Restarts, Supervisor/host actions and deleting integrations are always blocked.",
+          "reply_timeout": "After this many minutes an awaiting request counts as answered in the Grok Bot app (0 = never)."
+        }
+      },
+      "install_mcp": {
+        "title": "Install HA-MCP first",
+        "description": "**Install HA-MCP first.** Without an MCP connector Grok Bot can receive your messages but can't answer or fix anything in Home Assistant.\n\n1. [Install HA-MCP]({ha_mcp_install_url}) via HACS / the Marketplace and restart Home Assistant.\n2. [Add the HA-MCP integration]({ha_mcp_setup_url}) and create its server entry.\n3. Open Grok Bot's options → Access again: it detects HA-MCP and shows a ready-to-paste prompt to connect it in the Grok Bot app.\n\nPrefer the built-in option? [Set up core MCP Server]({mcp_setup_url}) instead. You can continue now: Grok Bot stays reply-only until a connector is set up.",
+        "data": {
+          "access_method": "Access method",
+          "access_level": "Access webhook level",
+          "reply_timeout": "Reply timeout",
+          "access_actions": "Allowed webhook actions",
+          "access_domains": "Allowed action domains (empty = all not blocked)",
+          "access_entities": "Allowed entities (empty = all)",
+          "access_require_pending": "Only while a request is open",
+          "access_ttl": "Session length",
+          "access_notify": "Notify me of every action",
+          "access_max_response_kb": "Max response size"
+        },
+        "data_description": {
+          "access_method": "HA-MCP (or core MCP Server) is the default: Grok Bot uses your MCP connector and calls grok_bot.reply. The access webhook is for instances without an MCP connector.",
+          "access_level": "Only used by the access webhook. Restarts, Supervisor/host actions and deleting integrations are always blocked.",
+          "reply_timeout": "After this many minutes an awaiting request counts as answered in the Grok Bot app (0 = never)."
+        }
+      },
+      "connect": {
+        "title": "Connect it in Grok Bot",
+        "description": "HA-MCP is installed. **Before you use Grok Bot, connect this Home Assistant (\"{name}\") in the Grok Bot app.**\n\nCopy the prompt below and send it to your Grok Bot. It connects this HA through HA-MCP (`{mcp_url}`), sets up the webhook routine with safe rules and replies \"Connected\". Until then a \"Grok Bot not connected yet\" repair stays open. You can show this prompt again with the \"Show Grok Bot setup prompt\" button.\n\n```\n{prompt}\n```"
       }
     },
     "error": {
@@ -237,6 +314,35 @@
         "allow": "Only these loggers",
         "deny": "All except these loggers"
       }
+    },
+    "access_method": {
+      "options": {
+        "mcp": "MCP connector (HA-MCP recommended, or core MCP Server)",
+        "webhook": "Access webhook of this integration (Advanced)",
+        "none": "No access (Grok Bot can't answer in Home Assistant)"
+      }
+    },
+    "access_level": {
+      "options": {
+        "reply": "Reply only",
+        "read": "Read (states, history, logs, repairs)",
+        "control": "Control (call actions on allowed entities)",
+        "fix": "Fix (also reload integrations, dismiss repairs, enable entities)"
+      }
+    },
+    "access_action": {
+      "options": {
+        "reply": "Reply",
+        "get_states": "Read states",
+        "get_history": "Read history",
+        "list_repairs": "List repairs",
+        "get_logs": "Read logs",
+        "list_entries": "List integrations",
+        "call_service": "Call actions",
+        "reload_entry": "Reload integration",
+        "ignore_repair": "Dismiss repair",
+        "enable_entity": "Enable entity"
+      }
     }
   },
   "entity": {
@@ -255,7 +361,8 @@
           "dropped_paused": "Dropped (paused)",
           "dropped_cooldown": "Dropped (cooldown)",
           "dropped_quiet_hours": "Dropped (quiet hours)",
-          "dropped_too_large": "Dropped (too large)"
+          "dropped_too_large": "Dropped (too large)",
+          "answered_elsewhere": "Replied in Grok Bot app"
         }
       },
       "last_sent": {
@@ -278,6 +385,21 @@
       },
       "pending": {
         "name": "Awaiting reply"
+      },
+      "access_method": {
+        "name": "Access method",
+        "state": {
+          "ha_mcp": "HA-MCP",
+          "mcp_server": "MCP Server",
+          "webhook": "Access webhook",
+          "none": "None"
+        }
+      },
+      "access_url": {
+        "name": "Access webhook URL"
+      },
+      "last_action": {
+        "name": "Last Grok Bot action"
       }
     },
     "switch": {
@@ -297,6 +419,15 @@
       },
       "reset_budget": {
         "name": "Reset budget counters"
+      },
+      "rotate_token": {
+        "name": "Rotate access token"
+      },
+      "mark_handled": {
+        "name": "Mark replies handled"
+      },
+      "setup_prompt": {
+        "name": "Show Grok Bot setup prompt"
       }
     }
   },
@@ -578,6 +709,26 @@
           "description": "Only needed when you have more than one Grok Bot entry."
         }
       }
+    },
+    "rotate_token": {
+      "name": "Rotate access token",
+      "description": "Creates a new token for the access webhook; the old one stops working at once.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Config entry",
+          "description": "Only needed with more than one Grok Bot entry."
+        }
+      }
+    }
+  },
+  "issues": {
+    "mcp_server_missing": {
+      "title": "Install HA-MCP so Grok Bot can answer",
+      "description": "No MCP server was found, so Grok Bot can't answer or act in Home Assistant. [Install HA-MCP]({ha_mcp_install_url}) (recommended) and [add it]({ha_mcp_setup_url}), or [set up core MCP Server]({mcp_setup_url}) (connector path `{mcp_path}`). Then open the Grok Bot options → Access."
+    },
+    "not_connected": {
+      "title": "Grok Bot not connected yet",
+      "description": "HA-MCP is installed, but \"{name}\" has not received a reply from Grok Bot yet. Press the \"Show Grok Bot setup prompt\" button (or open the options → Connect it in Grok Bot), send the prompt to your Grok Bot and wait for \"Connected\". This repair clears itself on the first grok_bot.reply."
     }
   }
 }

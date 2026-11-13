@@ -140,12 +140,21 @@ async def test_reply_to_persistent_notification_and_no_loop(hass, webhook_mock):
 
 
 async def test_inbound_webhook(hass, webhook_mock, hass_client_no_auth):
-    await setup_entry(hass, enable_inbound_webhook=True)
+    entry = await setup_entry(hass, access_method="webhook", access_require_pending=False)
+    token = entry.runtime_data.hub.access.token
     client = await hass_client_no_auth()
-    resp = await client.post("/api/webhook/inbound-test-id", json={"message": "from webhook"})
+    resp = await client.post("/api/webhook/inbound-test-id", json={"message": "no token"})
+    assert resp.status == 401
+    resp = await client.post(
+        "/api/webhook/inbound-test-id",
+        json={"message": "from webhook"},
+        headers={"X-Grok-Bot-Token": token},
+    )
     assert resp.status == 200
     assert hass.states.get("sensor.grok_bot_last_reply").state == "from webhook"
-    resp = await client.post("/api/webhook/inbound-test-id", json={"nope": 1})
+    resp = await client.post(
+        "/api/webhook/inbound-test-id", json={"nope": 1}, headers={"X-Grok-Bot-Token": token}
+    )
     assert resp.status == 400
 
 

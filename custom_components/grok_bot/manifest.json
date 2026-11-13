@@ -2,7 +2,10 @@
   "domain": "grok_bot",
   "name": "Grok Bot",
   "after_dependencies": [
-    "frontend"
+    "cloud",
+    "frontend",
+    "mcp_server",
+    "recorder"
   ],
   "categories": [
     "ai_voice.voice_assistants",
@@ -23,5 +26,5 @@
   "iot_class": "cloud_push",
   "issue_tracker": "https://github.com/DonTranQuiL/grok-bot-ha/issues",
   "requirements": [],
-  "version": "0.1.0"
+  "version": "0.1.1"
 }

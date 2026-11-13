@@ -22,7 +22,10 @@ Let Home Assistant talk to your **Grok Bot** assistant. Home Assistant sends tas
 * ✅ **Problem watchers** (opt-in): logged errors and warnings, repair issues, entities that stay unavailable, failed automations and scripts, and integration setup failures. You choose per watcher whether Grok Bot only **reports**, **diagnoses**, or may **diagnose and fix**.
 * ✅ **Budget guard:** hourly and 24-hour limits, a **Pause sending** switch, counter sensors, and `grok_bot_dropped` events. Nothing is queued and nothing is retried automatically.
 * ✅ **Optional entities:** a notify entity (`notify.send_message` to Grok Bot) and an **Assist conversation agent**.
-* ✅ **Replies:** a *Last reply* sensor with recent history, a `grok_bot_reply` event, and delivery to an `input_text`, a notify entity or service, or a persistent notification. An optional inbound webhook is also available.
+* ✅ **Replies:** a *Last reply* sensor with recent history, a `grok_bot_reply` event, and delivery to an `input_text`, a notify entity or service, or a persistent notification.
+* ✅ **Access through HA-MCP (recommended):** Grok Bot answers and acts in Home Assistant through the [HA-MCP](https://github.com/homeassistant-ai/ha-mcp) connector you add in the Grok Bot app. Core MCP Server works as a fallback; the integration's own token-protected access webhook is an Advanced alternative.
+* ✅ **Guided onboarding:** setup detects HA-MCP (then core MCP Server), says *Install HA-MCP first* when it's missing, and otherwise shows a ready-to-paste **setup prompt** that connects your Grok Bot.
+* ✅ **"Awaiting reply" never sticks:** a reply timeout (10 min) marks requests *Replied in Grok Bot app*, and a *Mark replies handled* button clears them at once.
 * ✅ **Dashboard card** `custom:grok-bot-card`: an animated bot avatar (idle, thinking, success, error and paused states), an ask box, the last reply, the recent conversation, budget chips, and Diagnose/Fix buttons for open repairs. It comes with a visual editor, follows the dark or light theme, and accepts a custom avatar image.
 * ✅ **Blueprints:** threshold alert, nightly health report, and replies pushed to your phone.
 * ✅ Diagnostics with every secret redacted, plus English and Dutch translations.
@@ -55,15 +58,20 @@ Let Home Assistant talk to your **Grok Bot** assistant. Home Assistant sends tas
 
 1. **Create the webhook in Grok Bot.** In the Grok Bot app, create (or open) a routine that is triggered by a **webhook**. Copy two values: the **Webhook URL** and the **Authorization header** value.
 2. **Add the integration.** Go to **Settings > Devices & services > Add integration > Grok Bot**. Paste the URL and the header value exactly as shown (`Bearer …`; a pasted `Authorization:` prefix is removed automatically). Leave **Send a test ping** on to check that it works. This costs one Grok Bot run.
-3. **Pick a preset:**
+3. **Connect Grok Bot back to Home Assistant (Access step).** Grok Bot needs an MCP connector to answer in HA, update the sensors and fix things:
+   * **HA-MCP not installed?** The step says **Install HA-MCP first**: [install HA-MCP](https://my.home-assistant.io/redirect/hacs_repository/?owner=homeassistant-ai&repository=ha-mcp&category=integration) from HACS/the Marketplace, restart, [add the HA-MCP integration](https://my.home-assistant.io/redirect/config_flow_start/?domain=ha_mcp_tools) and its server entry. You can finish setup now (reply-only) and come back via **Configure > Access**; it re-detects HA-MCP.
+   * **HA-MCP installed?** Setup shows **Connect it in Grok Bot** with a prompt filled in with your HA name, its HA-MCP URL and your routine webhook. Paste it into your Grok Bot. Until Grok Bot answers *Connected*, a **Grok Bot not connected yet** repair stays open. The **Show Grok Bot setup prompt** button shows the prompt again.
+   * **Prefer core?** [Set up MCP Server](https://my.home-assistant.io/redirect/config_flow_start/?domain=mcp_server) and add `https://<your-external-or-nabu-casa-url>/api/mcp` as a connector (OAuth or a long-lived token). The LLM API you choose there (Assist = only exposed entities) decides what Grok Bot can touch.
+   * The URL must be reachable from the internet (Nabu Casa or your own external URL).
+4. **Pick a preset:**
    | Preset | What gets sent automatically |
    | --- | --- |
    | **Ask only** (default) | Nothing. Only your own actions, buttons and the card. |
    | **Errors only** | Logged errors, failed automations or scripts, and integration setup failures (*report*). |
    | **Errors + repairs, diagnose** | The above plus new repair issues. Grok Bot investigates each one (*diagnose*). |
    | **Custom** | Opens Advanced mode. |
-4. **Add the card.** Edit a dashboard, select **Add card**, and choose **Grok Bot** (or use `type: custom:grok-bot-card`).
-5. **Ask something** in the card, or call the action from a script:
+5. **Add the card.** Edit a dashboard, select **Add card**, and choose **Grok Bot** (or use `type: custom:grok-bot-card`).
+6. **Ask something** in the card, or call the action from a script:
    ```yaml
    action: grok_bot.ask
    data:
@@ -72,9 +80,56 @@ Let Home Assistant talk to your **Grok Bot** assistant. Home Assistant sends tas
      action_mode: diagnose
      reply_to: persistent_notification
    ```
-6. The answer appears in the card and in `sensor.grok_bot_last_reply`. It is also sent to `reply_to`.
+7. The answer appears in the card and in `sensor.grok_bot_last_reply`. It is also sent to `reply_to`.
 
 To stop all sending at once, turn on **switch.grok_bot_pause_sending**.
+
+### The setup prompt
+
+Shown in the *Connect it in Grok Bot* step and by the **Show Grok Bot setup prompt** button (Dutch when Home Assistant's language is Dutch). It never contains your Authorization header or any token.
+
+<details><summary>English</summary>
+
+```text
+Hi Grok Bot, please connect my Home Assistant "<your HA name>" to you.
+
+1. Connect it: add Home Assistant as a connector using HA-MCP (homeassistant-ai/ha-mcp). MCP URL: https://<your-external-or-nabu-casa-url>/api/webhook/<HA-MCP webhook id>
+   (copy the exact remote URL from HA-MCP > Configure in Home Assistant if this one is a placeholder).
+2. Create or update a webhook routine for the Grok Bot Home Assistant integration. Its webhook URL is: <your Grok Bot routine webhook URL>
+   Each POST carries a JSON payload with schema, type (ask, event, state, issue, log, health_report, ping, ...), message, conversation_id, action_mode, allow_fix, context and an access block.
+3. Rules for that routine:
+   - Respect action_mode: report = just summarise; diagnose = investigate read-only; fix = only when allow_fix is true, and only safe, reversible fixes (reload an integration, re-enable an entity, dismiss a fixed repair).
+   - Never restart Home Assistant Core, never edit configuration files and never delete integrations, devices or entities.
+   - Always answer through the grok_bot.reply action on this Home Assistant (HA-MCP connector "<your HA name>") with the payload's conversation_id, so the integration's sensors update.
+   - Stay quiet in our chat for routine successes; only message me when something failed or needs my decision.
+4. Confirm it works: call grok_bot.reply with message "Connected" (no conversation_id needed).
+```
+</details>
+
+<details><summary>Nederlands</summary>
+
+```text
+Hoi Grok Bot, koppel alsjeblieft mijn Home Assistant "<your HA name>" aan jou.
+
+1. Koppelen: voeg Home Assistant toe als connector via HA-MCP (homeassistant-ai/ha-mcp). MCP-URL: https://<your-external-or-nabu-casa-url>/api/webhook/<HA-MCP webhook id>
+   (kopieer de exacte externe URL uit HA-MCP > Configureren in Home Assistant als dit een voorbeeld is).
+2. Maak of werk een webhook-routine bij voor de Grok Bot Home Assistant-integratie. De webhook-URL is: <your Grok Bot routine webhook URL>
+   Elke POST bevat JSON met schema, type (ask, event, state, issue, log, health_report, ping, ...), message, conversation_id, action_mode, allow_fix, context en een access-blok.
+3. Regels voor die routine:
+   - Volg action_mode: report = alleen samenvatten; diagnose = alleen-lezen onderzoeken; fix = alleen als allow_fix true is, en alleen veilige, omkeerbare oplossingen (integratie herladen, entiteit weer inschakelen, opgeloste reparatie negeren).
+   - Herstart nooit Home Assistant Core, bewerk nooit configuratiebestanden en verwijder nooit integraties, apparaten of entiteiten.
+   - Antwoord altijd via de actie grok_bot.reply op deze Home Assistant (HA-MCP-connector "<your HA name>") met de conversation_id uit het bericht, zodat de sensoren van de integratie bijwerken.
+   - Blijf stil in onze chat bij routinematige successen; stuur me alleen een bericht als iets mislukt of mijn beslissing nodig is.
+4. Bevestig dat het werkt: roep grok_bot.reply aan met het bericht "Connected" (zonder conversation_id).
+```
+</details>
+
+### "Awaiting reply"
+
+Every send that expects an answer adds one to `sensor.grok_bot_awaiting_reply`. It goes back down when:
+* Grok Bot calls `grok_bot.reply` with the `conversation_id` (through HA-MCP this happens right away);
+* the **reply timeout** passes (Configure > Access, default 10 minutes, 0 = never): the request counts as answered in the Grok Bot app and *Last status* shows **Replied in Grok Bot app**;
+* you press **Mark replies handled**.
 
 ---
 
@@ -85,7 +140,9 @@ To stop all sending at once, turn on **switch.grok_bot_pause_sending**.
 | Menu | Options |
 | --- | --- |
 | **Preset** | Simple presets (see above). *Custom* switches to Advanced mode. |
-| **Features** | Notify entity, Assist agent, inbound reply webhook, and attaching entity attributes (all **off** by default except attributes). |
+| **Features** | Notify entity, Assist agent, and attaching entity attributes (all **off** by default except attributes). |
+| **Access** | Re-detects HA-MCP / MCP Server. Access method (`mcp` default, `webhook`, `none`), access webhook level (reply, read, control, fix), reply timeout. Advanced: allowed webhook actions, domains and entities, only-while-a-request-is-open, session length, notify on every action, max response size. |
+| **Connect it in Grok Bot** | Only with HA-MCP installed: the setup prompt again. |
 | **Budget** | Max sends per hour (20) and per 24 h (100). Advanced only: minimum interval per entity or event (300 s), quiet hours (drop automatic sends), payload size limit (16 kB). |
 | **State and event forwarding** | Allowlisted entities and event types, an action mode for each, and whether to ignore unavailable/unknown. `state_changed`, `call_service` and other high-volume or loop-prone events, and every `grok_bot_*` event, are blocked. |
 | **Per-entity filters** | Per entity: *only when the new state is one of …*, *use attribute X instead of the state*, *above/below* thresholds (these fire on **crossing** into the range, not on every change), and a minimum interval. |
@@ -113,6 +170,7 @@ To stop all sending at once, turn on **switch.grok_bot_pause_sending**.
 | `grok_bot.health_report` | `action_mode` + common. Sends open repairs, failed integrations, unavailable entities and recent errors. | delivery status |
 | `grok_bot.ping` | `bypass_budget` | delivery status |
 | `grok_bot.reply` | `message`, `conversation_id`, `title`, `reply_to`, `data` (used by Grok Bot) | – |
+| `grok_bot.rotate_token` | `config_entry_id` | – |
 
 The delivery status looks like this: `{"status": "sent" | "failed" | "auth_failed" | "dropped_budget" | "dropped_paused" | "dropped_quiet_hours" | "dropped_too_large", "conversation_id": "…", "http_status": 200, "sends_last_hour": 3, "sends_last_24h": 27, "remaining_last_hour": 17, "remaining_last_24h": 73}`.
 
@@ -129,7 +187,9 @@ The delivery status looks like this: `{"status": "sent" | "failed" | "auth_faile
 
 ### Entities
 
-`sensor.grok_bot_last_reply` (with `history`), `last_status`, `last_sent`, `sends_last_hour` and `sends_last_24_hours` (with `limit`/`remaining`), plus the diagnostic counters `sent_total`, `failed_total`, `dropped_total` and `awaiting_reply`. There is also `switch.grok_bot_pause_sending`, the buttons *Send test ping*, *Send health report*, *Fix open repairs* and *Reset budget counters*, and, when enabled, `notify.grok_bot` and `conversation.grok_bot`.
+`sensor.grok_bot_last_reply` (with `history`), `last_status`, `last_sent`, `sends_last_hour` and `sends_last_24_hours` (with `limit`/`remaining`), `last_grok_bot_action` (access webhook audit), plus the diagnostic sensors `sent_total`, `failed_total`, `dropped_total`, `awaiting_reply`, `access_method` (`ha_mcp`, `mcp_server`, `webhook` or `none`, with the connector URL hint) and `access_webhook_url`. There is also `switch.grok_bot_pause_sending`, the buttons *Send test ping*, *Send health report*, *Fix open repairs*, *Reset budget counters*, *Mark replies handled*, *Show Grok Bot setup prompt* and *Rotate access token*, and, when enabled, `notify.grok_bot` and `conversation.grok_bot`.
+
+**Repairs:** *Install HA-MCP so Grok Bot can answer* (access method `mcp` but no MCP server found) and *Grok Bot not connected yet* (HA-MCP installed, no `grok_bot.reply` received yet). Both clear themselves.
 
 **Assist:** pick *Grok Bot* as the conversation agent of a voice assistant. Assist answers right away with *"Sent to Grok Bot. I'll answer shortly."* The real answer arrives later in the reply sensor, the card and the `grok_bot_reply` event, with the same `conversation_id`.
 
@@ -149,19 +209,30 @@ The delivery status looks like this: `{"status": "sent" | "failed" | "auth_faile
   "allow_fix": false,
   "data": {"…": "type-specific details: issue, event_data, logger, traceback, repeats_suppressed, …"},
   "timestamp": "2026-11-13T08:40:00+00:00",
-  "ha_instance": {"name": "Home", "version": "2026.11.0", "integration_version": "0.1.0", "config_entry_id": "…", "time_zone": "Europe/Amsterdam"},
+  "ha_instance": {"name": "Home", "version": "2026.11.0", "integration_version": "0.1.1", "config_entry_id": "…", "time_zone": "Europe/Amsterdam"},
   "reply_with": {"service": "grok_bot.reply", "data": {"config_entry_id": "…", "conversation_id": "8f3c…", "message": "<your answer>"}},
+  "access": {"method": "mcp | webhook | none", "configured_method": "mcp", "mcp_ready": true, "mcp_provider": "ha_mcp | mcp_server | null", "connector_url_hint": "https://…/api/webhook/<HA-MCP webhook id>", "ha_instance": {"name": "Home", "external_url": "https://…", "config_entry_id": "…"}},
+  "callback": {"protocol": 1, "url": "https://…/api/webhook/…", "token": "…", "token_header": "X-Grok-Bot-Token", "access_level": "reply", "allowed_actions": ["reply"], "expires": "…", "conversation_id": "8f3c…"},
   "truncated": true
 }
 ```
 
-`truncated` only appears when the payload had to be shrunk to fit the size limit. The integration first drops attributes, then large detail fields, then shortens the message.
+`access.method` is the path that works right now (`none` when the configured MCP server isn't installed or the access webhook has no external URL). `callback` is only present with the access webhook method. `truncated` only appears when the payload had to be shrunk to fit the size limit. The integration first drops attributes, then large detail fields, then shortens the message.
 
 **Telling Grok Bot what to do.** Put this in the routine's instructions: *"Handle the Home Assistant payload. Respect `action_mode`: for `report`, only summarise; for `diagnose`, investigate with the Home Assistant connector without changing anything; for `fix`, only perform safe, reversible fixes (reload a config entry, retry, toggle back). Always answer by calling `grok_bot.reply` with the given `conversation_id`. Message me only when `notify_user` is true or something failed."*
 
-### Inbound webhook (optional)
+### Access webhook (Advanced alternative)
 
-When enabled under **Features**, Grok Bot (or anything else) can POST `{"message": "…", "conversation_id": "…", "title": "…"}` to `https://<your-ha>/api/webhook/<id>`. The path is shown on the Features page. Treat the id as a secret. `grok_bot.reply` through the Home Assistant connector is the primary path and needs no open webhook.
+For an instance where no MCP connector is possible, set **Configure > Access > Access method** to *Access webhook*. Each payload then carries a `callback` block: Grok Bot POSTs `{"conversation_id": "…", "actions": [{"type": "reply", "message": "…"}, {"type": "get_states", "domains": ["light"]}]}` to `callback.url` with the `X-Grok-Bot-Token` header. The URL is a Nabu Casa cloudhook when available, otherwise your external URL.
+
+| Level | Actions |
+| --- | --- |
+| Reply only (default) | `reply` |
+| Read | + `get_states`, `get_history`, `list_repairs`, `get_logs`, `list_entries` |
+| Control | + `call_service` (optionally limited to domains/entities) |
+| Fix | + `reload_entry`, `ignore_repair`, `enable_entity` |
+
+Restarting or stopping Home Assistant, Supervisor/host, shell and Python script actions, recorder purges, update installs and anything in `grok_bot` are always blocked. By default calls only work while a request is open (15 min). Every call is audited in *Last Grok Bot action* and a `grok_bot_action` event; **Rotate access token** invalidates the token immediately. The full protocol is in [docs/callback_protocol.md](docs/callback_protocol.md).
 
 ### Card options
 
@@ -191,12 +262,14 @@ default_mode: report       # report | diagnose | fix
 
 ## Privacy and security
 
-* The Authorization header value is stored in the config entry, sent only to the webhook URL, never logged, and redacted in diagnostics along with the webhook URL and the inbound webhook id.
+* The Authorization header value is stored in the config entry, sent only to the webhook URL, never logged, and redacted in diagnostics along with the webhook URL, the access webhook id/URL and its token.
+* The setup prompt and payloads never contain the Authorization header, HA tokens or the HA-MCP webhook id.
+* With HA-MCP or MCP Server, what Grok Bot can do is decided by that integration's settings, not by this one.
 * Only https webhook URLs are accepted.
 * The integration never forwards its own log lines or events, so it can't loop.
 
 ## Limitations
 
 * There is no public Grok Bot API. Delivery is a webhook POST, and answers arrive asynchronously through `grok_bot.reply`.
-* Grok Bot can only act in Home Assistant if its Home Assistant connector has access.
+* Grok Bot can only act in Home Assistant if its Home Assistant connector (HA-MCP or MCP Server) has access, and that needs a URL reachable from the internet.
 * Because the transport is a private webhook, this integration is meant for the Marketplace and HACS, not Home Assistant core.

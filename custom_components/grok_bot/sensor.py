@@ -18,6 +18,7 @@ from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.util import dt as dt_util
 
 from . import GrokBotConfigEntry
+from .access import allowed_actions
 from .const import MAX_STATE_LEN, STATUSES
 from .entity import GrokBotEntity
 from .hub import GrokBotHub
@@ -43,6 +44,12 @@ def _reply_attrs(hub: GrokBotHub) -> dict[str, Any]:
         "data": reply.get("data"),
         "history": list(hub.history),
     }
+
+
+def _access_state(info: dict) -> str:
+    if info["method"] == "mcp":
+        return info["mcp_provider"] or "none"
+    return info["method"]
 
 
 SENSORS: tuple[GrokBotSensorDescription, ...] = (
@@ -100,6 +107,33 @@ SENSORS: tuple[GrokBotSensorDescription, ...] = (
         value_fn=lambda h: h.stats["dropped"],
     ),
     GrokBotSensorDescription(
+        key="access_method",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        device_class=SensorDeviceClass.ENUM,
+        options=["ha_mcp", "mcp_server", "webhook", "none"],
+        value_fn=lambda h: _access_state(h.access_info()),
+        attrs_fn=lambda h: h.access_info(),
+    ),
+    GrokBotSensorDescription(
+        key="access_url",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=lambda h: h.access.url if h.access.enabled else None,
+        attrs_fn=lambda h: {
+            "source": h.access.url_source if h.access.enabled else "off",
+            "access_level": h.access.level,
+            "allowed_actions": allowed_actions(h.options),
+        },
+    ),
+    GrokBotSensorDescription(
+        key="last_action",
+        value_fn=lambda h: h.access.audit[-1]["summary"] if h.access.audit else None,
+        attrs_fn=lambda h: {
+            "ok": h.access.audit[-1]["ok"] if h.access.audit else None,
+            "time": h.access.audit[-1]["time"] if h.access.audit else None,
+            "audit": list(h.access.audit),
+        },
+    ),
+    GrokBotSensorDescription(
         key="pending",
         state_class=SensorStateClass.MEASUREMENT,
         entity_category=EntityCategory.DIAGNOSTIC,
@@ -121,7 +155,7 @@ class GrokBotSensor(GrokBotEntity, SensorEntity):
     """A Grok Bot sensor."""
 
     entity_description: GrokBotSensorDescription
-    _unrecorded_attributes = frozenset({"history", "data", "message"})
+    _unrecorded_attributes = frozenset({"history", "data", "message", "audit"})
 
     def __init__(self, hub: GrokBotHub, description: GrokBotSensorDescription) -> None:
         super().__init__(hub, description.key)

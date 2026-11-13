@@ -119,6 +119,12 @@ def test_card_in_browser():
     assert c["editor_form"] is True
     assert "grok-bot-card" in c["custom_cards"]
     assert c["stub"] == {"type": "custom:grok-bot-card"}
+    assert c["awaiting_chip"] == "2 awaiting"
+    assert c["handled_call"] == {
+        "domain": "button",
+        "service": "press",
+        "data": {"entity_id": "button.grok_bot_mark_replies_handled"},
+    }
 
 
 async def test_card_is_served_and_registered(hass, enable_custom_integrations):
