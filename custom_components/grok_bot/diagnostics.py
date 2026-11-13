@@ -43,6 +43,8 @@ async def async_get_config_entry_diagnostics(
                 "history": [
                     {k: v for k, v in item.items() if k != "message"} for item in hub.history
                 ],
+                "access": hub.access_info(),
+                "connected": hub.connected,
                 "access_level": hub.access.level,
                 "access_url": hub.access.url,
                 "access_url_source": hub.access.url_source,
