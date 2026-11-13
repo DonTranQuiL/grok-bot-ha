@@ -91,7 +91,7 @@
     "step": {
       "init": {
         "title": "Grok Bot options",
-        "description": "Mode: {mode}. Preset: {preset}. Every send costs Grok Bot usage and counts toward your budget.",
+        "description": "Mode: {mode}. Preset: {preset}. Every send costs Grok Bot usage and counts toward your budget. Each page is saved as soon as you press Submit.",
         "menu_options": {
           "preset": "Preset (simple setup)",
           "features": "Features (notify, Assist)",

@@ -189,8 +189,10 @@ async def test_options_advanced(hass, webhook_mock):
     aborted = await _menu(hass, flow, "entity_filter")
     assert aborted["reason"] == "no_forward_entities"
 
+    # Advanced mode was saved right away, so the next dialog opens in it
     flow = await _options(hass, entry)
-    flow = await _menu(hass, flow, "advanced_mode")
+    assert entry.options[CONF_MODE] == "advanced"
+    assert "advanced_mode" not in flow["menu_options"]
     flow = await _menu(hass, flow, "forwarding")
     bad = await hass.config_entries.options.async_configure(
         flow["flow_id"],

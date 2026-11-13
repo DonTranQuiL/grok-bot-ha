@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Final
 
 DOMAIN: Final = "grok_bot"
-INTEGRATION_VERSION: Final = "0.1.2"
+INTEGRATION_VERSION: Final = "0.1.3"
 PAYLOAD_SCHEMA_VERSION: Final = 1
 
 # Config entry data

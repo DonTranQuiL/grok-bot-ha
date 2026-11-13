@@ -91,7 +91,7 @@
     "step": {
       "init": {
         "title": "Grok Bot-opties",
-        "description": "Modus: {mode}. Voorinstelling: {preset}. Elke verzending kost Grok Bot-verbruik en telt mee voor je budget.",
+        "description": "Modus: {mode}. Voorinstelling: {preset}. Elke verzending kost Grok Bot-verbruik en telt mee voor je budget. Elke pagina wordt opgeslagen zodra je op Verzenden drukt.",
         "menu_options": {
           "preset": "Voorinstelling (eenvoudig)",
           "features": "Functies (notify, Assist)",

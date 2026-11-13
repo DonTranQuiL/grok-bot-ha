@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+import copy
 import hashlib
+import logging
 from typing import Any
 
 from homeassistant.components import webhook
@@ -117,6 +119,8 @@ from .const import (
 from .mcp import detect_mcp, ha_mcp_installed, setup_links
 from .prompt import setup_prompt
 from .triggers import event_type_allowed
+
+_LOGGER = logging.getLogger(__name__)
 
 CONF_SEND_TEST = "send_test"
 WEBHOOK_LEVELS = [ACCESS_REPLY, ACCESS_READ, ACCESS_CONTROL, ACCESS_FIX]
@@ -371,7 +375,7 @@ class GrokBotConfigFlow(ConfigFlow, domain=DOMAIN):
             if error:
                 errors["base"] = error
             else:
-                return self.async_update_reload_and_abort(
+                return self.async_update_and_abort(
                     entry,
                     data_updates={
                         CONF_AUTH_HEADER: normalize_auth_header(user_input[CONF_AUTH_HEADER])
@@ -406,7 +410,7 @@ class GrokBotConfigFlow(ConfigFlow, domain=DOMAIN):
 
     def _finish_reconfigure(self) -> ConfigFlowResult:
         new_id, updates = self._reconfigure
-        return self.async_update_reload_and_abort(
+        return self.async_update_and_abort(
             self._get_reconfigure_entry(), unique_id=new_id, data_updates=updates
         )
 
@@ -457,7 +461,12 @@ class GrokBotConfigFlow(ConfigFlow, domain=DOMAIN):
 
 
 class GrokBotOptionsFlow(OptionsFlow):
-    """Simple mode (presets) and Advanced mode (every option)."""
+    """Simple mode (presets) and Advanced mode (every option).
+
+    Every sub-page saves the options as soon as it is submitted, so closing the
+    dialog (X, Esc, a click outside, a browser reload) never loses a change.
+    "Save and close" only closes the menu.
+    """
 
     def __init__(self) -> None:
         self._options: dict[str, Any] = {}
@@ -502,25 +511,46 @@ class GrokBotOptionsFlow(OptionsFlow):
             },
         )
 
+    def _snapshot(self) -> dict[str, Any]:
+        """Independent copy of the working options (never alias entry.options)."""
+        return copy.deepcopy(self._opts)
+
+    @callback
+    def _save(self) -> None:
+        """Store the working options on the entry right away (reloads when changed)."""
+        entry = self.config_entry
+        changed = self.hass.config_entries.async_update_entry(entry, options=self._snapshot())
+        _LOGGER.debug(
+            "Options for %s saved (changed=%s, trusted=%s)",
+            entry.entry_id,
+            changed,
+            self._opts.get(CONF_TRUSTED),
+        )
+
+    async def _saved_menu(self) -> ConfigFlowResult:
+        self._save()
+        return await self.async_step_init()
+
     async def async_step_finish(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
-        return self.async_create_entry(data=self._opts)
+        # Sub-pages already saved; this only closes the dialog (no-op update).
+        return self.async_create_entry(data=self._snapshot())
 
     async def async_step_advanced_mode(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
         self._opts[CONF_MODE] = MODE_ADVANCED
-        return await self.async_step_init()
+        return await self._saved_menu()
 
     async def async_step_simple_mode(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
         self._opts[CONF_MODE] = MODE_SIMPLE
-        return await self.async_step_init()
+        return await self._saved_menu()
 
     async def async_step_preset(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         if user_input is not None:
             self._options = apply_preset(self._opts, user_input[CONF_PRESET])
-            return await self.async_step_init()
+            return await self._saved_menu()
         return self.async_show_form(
             step_id="preset",
             data_schema=vol.Schema(
@@ -537,7 +567,7 @@ class GrokBotOptionsFlow(OptionsFlow):
     ) -> ConfigFlowResult:
         if user_input is not None:
             self._opts.update(user_input)
-            return await self.async_step_init()
+            return await self._saved_menu()
         o = self._opts
         return self.async_show_form(
             step_id="features",
@@ -565,6 +595,7 @@ class GrokBotOptionsFlow(OptionsFlow):
                 if not values.get(CONF_TRUSTED, self._opts[CONF_TRUSTED]):
                     values[CONF_TRUSTED_CONFIRM] = False
                 self._opts.update(values)
+                self._save()
                 if ha_mcp_installed(self.hass):
                     return await self.async_step_connect()
                 return await self.async_step_init()
@@ -643,7 +674,7 @@ class GrokBotOptionsFlow(OptionsFlow):
                 errors["base"] = "hour_over_day"
             else:
                 self._opts.update(values)
-                return await self.async_step_init()
+                return await self._saved_menu()
         o = self._opts
         fields: dict[Any, Any] = {
             vol.Required(CONF_MAX_PER_HOUR, default=o[CONF_MAX_PER_HOUR]): _num(
@@ -690,7 +721,7 @@ class GrokBotOptionsFlow(OptionsFlow):
                     for k, v in self._opts[CONF_FILTERS].items()
                     if k in user_input[CONF_FORWARD_ENTITIES]
                 }
-                return await self.async_step_init()
+                return await self._saved_menu()
         o = self._opts
         return self.async_show_form(
             step_id="forwarding",
@@ -745,7 +776,7 @@ class GrokBotOptionsFlow(OptionsFlow):
                 self._opts[CONF_FILTERS][entity_id] = {
                     k: v for k, v in rule.items() if v not in (None, "", [])
                 }
-            return await self.async_step_init()
+            return await self._saved_menu()
         schema = vol.Schema(
             {
                 vol.Optional(FILTER_TO_STATES): _select(
@@ -774,7 +805,7 @@ class GrokBotOptionsFlow(OptionsFlow):
                     values[CONF_LOG_DEDUPE] = int(values[CONF_LOG_DEDUPE])
                 self._opts.update(values)
             self._opts[CONF_PRESET] = PRESET_CUSTOM
-            return await self.async_step_init()
+            return await self._saved_menu()
         o = self._opts
         schema = vol.Schema(
             {
@@ -868,7 +899,7 @@ class GrokBotOptionsFlow(OptionsFlow):
         if user_input is not None:
             for key in (CONF_TEMPLATE_STATE, CONF_TEMPLATE_EVENT, CONF_TEMPLATE_ISSUE):
                 self._opts[key] = (user_input.get(key) or "").strip()
-            return await self.async_step_init()
+            return await self._saved_menu()
         schema = vol.Schema(
             {
                 vol.Optional(key): selector.TemplateSelector()

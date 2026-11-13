@@ -223,7 +223,7 @@ The delivery status looks like this: `{"status": "sent" | "failed" | "auth_faile
   "allow_fix": false,
   "data": {"…": "type-specific details: issue, event_data, logger, traceback, repeats_suppressed, …"},
   "timestamp": "2026-11-13T08:40:00+00:00",
-  "ha_instance": {"name": "Home", "version": "2026.11.0", "integration_version": "0.1.2", "config_entry_id": "…", "time_zone": "Europe/Amsterdam"},
+  "ha_instance": {"name": "Home", "version": "2026.11.0", "integration_version": "0.1.3", "config_entry_id": "…", "time_zone": "Europe/Amsterdam"},
   "reply_with": {"service": "grok_bot.reply", "data": {"config_entry_id": "…", "conversation_id": "8f3c…", "message": "<your answer>"}},
   "access": {"method": "mcp | webhook | none", "configured_method": "mcp", "mcp_ready": true, "trusted": true, "allow_yaml_edit": true, "allow_restart": false, "trusted_until": "… | forever", "always_on": false, "mcp_provider": "ha_mcp | mcp_server | null", "connector_url_hint": "https://…/api/webhook/<HA-MCP webhook id>", "ha_instance": {"name": "Home", "external_url": "https://…", "config_entry_id": "…"}},
   "callback": {"protocol": 1, "url": "https://…/api/webhook/…", "token": "…", "token_header": "X-Grok-Bot-Token", "access_level": "reply", "allowed_actions": ["reply"], "expires": "…", "conversation_id": "8f3c…"},
@@ -252,7 +252,7 @@ Restarting or stopping Home Assistant, Supervisor/host, shell and Python script 
 
 Some repairs can only be fixed by editing YAML and restarting, for example a deprecated `http:` block. Over the normal paths Grok Bot never does that. **Trusted access** allows it, step by step:
 
-1. **Configure → Advanced mode → Access:** turn on *Trusted access* 🚩 and tick *"I understand Grok Bot may edit configuration files and restart Home Assistant"* (required). Choose *Allow YAML edits* and *Allow restarts* separately, and pick the *Trusted window*: 30 minutes (default), 2 hours, 24 hours or **Always on** 🚩🚩. *Always on* keeps a warning repair open for as long as it is active.
+1. **Configure → Advanced mode → Access:** turn on *Trusted access* 🚩 and tick *"I understand Grok Bot may edit configuration files and restart Home Assistant"* (required). Choose *Allow YAML edits* and *Allow restarts* separately, and pick the *Trusted window*: 30 minutes (default), 2 hours, 24 hours or **Always on** 🚩🚩. *Always on* keeps a warning repair open for as long as it is active. Press *Submit*: every options page is saved right away, so you can close the dialog afterwards.
 2. A switch **Trusted access** appears. Turn it on when you want Grok Bot to work on such a repair. A timed window switches itself off when it ends and after every restart. *Always on* stays on (also across restarts) until you switch it off.
 3. Press **Fix open repairs** (or any `fix` request). Only then does the payload carry `access.trusted: true` with `allow_yaml_edit` and `allow_restart`.
 4. For edits Grok Bot uses **`grok_bot.edit_yaml`** (`path`, `operation`: `remove_key` / `set_key` / `replace_text`). It backs the file up to `/config/.grok_bot_backups/<file>.<timestamp>.bak`, applies the change as text (comments and other keys stay as they are), validates the YAML, runs a full configuration check and **restores the backup automatically when the check fails**. It works on top-level keys such as `http`, `homeassistant`, `frontend` or `lovelace`, which HA-MCP's file tools refuse, and it removes duplicate blocks of the same key. Alternatively Grok Bot calls `grok_bot.prepare_change` itself before editing with its connector.
