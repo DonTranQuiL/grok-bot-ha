@@ -343,7 +343,7 @@
         },
         "reply_to": {
           "name": "Antwoord naar",
-          "description": "Waar het antwoord van Grok Bot ook heen gaat: een input_text, een notify-entiteit, notify.<service> of persistent_notification."
+          "description": "Waar het antwoord van Grok Bot ook heen gaat: een input_text, een notify-entiteit, een oude notify-dienst (notify.naam) of persistent_notification."
         },
         "conversation_id": {
           "name": "Gespreks-ID",
@@ -389,7 +389,7 @@
         },
         "reply_to": {
           "name": "Antwoord naar",
-          "description": "Waar het antwoord van Grok Bot ook heen gaat: een input_text, een notify-entiteit, notify.<service> of persistent_notification."
+          "description": "Waar het antwoord van Grok Bot ook heen gaat: een input_text, een notify-entiteit, een oude notify-dienst (notify.naam) of persistent_notification."
         },
         "conversation_id": {
           "name": "Gespreks-ID",
@@ -435,7 +435,7 @@
         },
         "reply_to": {
           "name": "Antwoord naar",
-          "description": "Waar het antwoord van Grok Bot ook heen gaat: een input_text, een notify-entiteit, notify.<service> of persistent_notification."
+          "description": "Waar het antwoord van Grok Bot ook heen gaat: een input_text, een notify-entiteit, een oude notify-dienst (notify.naam) of persistent_notification."
         },
         "conversation_id": {
           "name": "Gespreks-ID",
@@ -481,7 +481,7 @@
         },
         "reply_to": {
           "name": "Antwoord naar",
-          "description": "Waar het antwoord van Grok Bot ook heen gaat: een input_text, een notify-entiteit, notify.<service> of persistent_notification."
+          "description": "Waar het antwoord van Grok Bot ook heen gaat: een input_text, een notify-entiteit, een oude notify-dienst (notify.naam) of persistent_notification."
         },
         "conversation_id": {
           "name": "Gespreks-ID",
@@ -515,7 +515,7 @@
         },
         "reply_to": {
           "name": "Antwoord naar",
-          "description": "Waar het antwoord van Grok Bot ook heen gaat: een input_text, een notify-entiteit, notify.<service> of persistent_notification."
+          "description": "Waar het antwoord van Grok Bot ook heen gaat: een input_text, een notify-entiteit, een oude notify-dienst (notify.naam) of persistent_notification."
         },
         "conversation_id": {
           "name": "Gespreks-ID",
@@ -567,7 +567,7 @@
         },
         "reply_to": {
           "name": "Antwoord naar",
-          "description": "Waar het antwoord van Grok Bot ook heen gaat: een input_text, een notify-entiteit, notify.<service> of persistent_notification."
+          "description": "Waar het antwoord van Grok Bot ook heen gaat: een input_text, een notify-entiteit, een oude notify-dienst (notify.naam) of persistent_notification."
         },
         "data": {
           "name": "Extra gegevens",

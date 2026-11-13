@@ -343,7 +343,7 @@
         },
         "reply_to": {
           "name": "Reply to",
-          "description": "Where Grok Bot's answer goes as well: an input_text, a notify entity, notify.<service>, or persistent_notification."
+          "description": "Where Grok Bot's answer goes as well: an input_text, a notify entity, a legacy notify service (notify.name), or persistent_notification."
         },
         "conversation_id": {
           "name": "Conversation ID",
@@ -389,7 +389,7 @@
         },
         "reply_to": {
           "name": "Reply to",
-          "description": "Where Grok Bot's answer goes as well: an input_text, a notify entity, notify.<service>, or persistent_notification."
+          "description": "Where Grok Bot's answer goes as well: an input_text, a notify entity, a legacy notify service (notify.name), or persistent_notification."
         },
         "conversation_id": {
           "name": "Conversation ID",
@@ -435,7 +435,7 @@
         },
         "reply_to": {
           "name": "Reply to",
-          "description": "Where Grok Bot's answer goes as well: an input_text, a notify entity, notify.<service>, or persistent_notification."
+          "description": "Where Grok Bot's answer goes as well: an input_text, a notify entity, a legacy notify service (notify.name), or persistent_notification."
         },
         "conversation_id": {
           "name": "Conversation ID",
@@ -481,7 +481,7 @@
         },
         "reply_to": {
           "name": "Reply to",
-          "description": "Where Grok Bot's answer goes as well: an input_text, a notify entity, notify.<service>, or persistent_notification."
+          "description": "Where Grok Bot's answer goes as well: an input_text, a notify entity, a legacy notify service (notify.name), or persistent_notification."
         },
         "conversation_id": {
           "name": "Conversation ID",
@@ -515,7 +515,7 @@
         },
         "reply_to": {
           "name": "Reply to",
-          "description": "Where Grok Bot's answer goes as well: an input_text, a notify entity, notify.<service>, or persistent_notification."
+          "description": "Where Grok Bot's answer goes as well: an input_text, a notify entity, a legacy notify service (notify.name), or persistent_notification."
         },
         "conversation_id": {
           "name": "Conversation ID",
@@ -567,7 +567,7 @@
         },
         "reply_to": {
           "name": "Reply to",
-          "description": "Where Grok Bot's answer goes as well: an input_text, a notify entity, notify.<service>, or persistent_notification."
+          "description": "Where Grok Bot's answer goes as well: an input_text, a notify entity, a legacy notify service (notify.name), or persistent_notification."
         },
         "data": {
           "name": "Extra data",
