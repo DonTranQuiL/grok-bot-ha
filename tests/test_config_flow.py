@@ -217,7 +217,7 @@ async def test_options_advanced(hass, webhook_mock):
         {
             "logs": {
                 "watch_logs": True,
-                "log_level": "WARNING",
+                "log_level": "warning",
                 "log_logger_mode": "allow",
                 "log_loggers": ["custom_components.helios_tilt"],
                 "log_dedupe": 600,

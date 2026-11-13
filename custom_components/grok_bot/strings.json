@@ -226,9 +226,9 @@
     },
     "log_level": {
       "options": {
-        "WARNING": "Warning",
-        "ERROR": "Error",
-        "CRITICAL": "Critical"
+        "warning": "Warning",
+        "error": "Error",
+        "critical": "Critical"
       }
     },
     "logger_mode": {

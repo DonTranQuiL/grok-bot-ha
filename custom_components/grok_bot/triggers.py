@@ -405,7 +405,7 @@ class TriggerManager:
         else:
             if not opts[CONF_WATCH_LOGS]:
                 return
-            if rec["levelno"] < logging.getLevelName(opts[CONF_LOG_LEVEL]):
+            if rec["levelno"] < logging.getLevelName(str(opts[CONF_LOG_LEVEL]).upper()):
                 return
             loggers = [lg.strip() for lg in opts[CONF_LOG_LOGGERS] if lg.strip()]
             matched = any(name == lg or name.startswith(f"{lg}.") for lg in loggers)

@@ -109,7 +109,7 @@ DEFAULT_OPTIONS: Final[dict] = {
     CONF_STATE_ACTION: ACTION_REPORT,
     CONF_EVENT_ACTION: ACTION_REPORT,
     CONF_WATCH_LOGS: False,
-    CONF_LOG_LEVEL: "ERROR",
+    CONF_LOG_LEVEL: "error",
     CONF_LOG_LOGGERS: [],
     CONF_LOG_LOGGER_MODE: LOGGER_MODE_ALL,
     CONF_LOG_DEDUPE: DEFAULT_LOG_DEDUPE,
@@ -153,7 +153,7 @@ PRESET_OPTIONS: Final[dict[str, dict]] = {
     },
     PRESET_ERRORS_ONLY: {
         CONF_WATCH_LOGS: True,
-        CONF_LOG_LEVEL: "ERROR",
+        CONF_LOG_LEVEL: "error",
         CONF_LOG_ACTION: ACTION_REPORT,
         CONF_WATCH_REPAIRS: False,
         CONF_WATCH_AUTOMATIONS: True,
@@ -163,7 +163,7 @@ PRESET_OPTIONS: Final[dict[str, dict]] = {
     },
     PRESET_ERRORS_REPAIRS_DIAGNOSE: {
         CONF_WATCH_LOGS: True,
-        CONF_LOG_LEVEL: "ERROR",
+        CONF_LOG_LEVEL: "error",
         CONF_LOG_ACTION: ACTION_DIAGNOSE,
         CONF_WATCH_REPAIRS: True,
         CONF_REPAIRS_ACTION: ACTION_DIAGNOSE,
@@ -174,7 +174,7 @@ PRESET_OPTIONS: Final[dict[str, dict]] = {
     },
 }
 
-LOG_LEVELS: Final = ["WARNING", "ERROR", "CRITICAL"]
+LOG_LEVELS: Final = ["warning", "error", "critical"]
 
 # Events that may never be forwarded (loops / floods)
 BLOCKED_EVENT_TYPES: Final = frozenset(

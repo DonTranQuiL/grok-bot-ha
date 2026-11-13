@@ -212,7 +212,7 @@ async def test_log_watcher_dedupe_and_filters(hass, webhook_mock):
     await setup_entry(
         hass,
         watch_logs=True,
-        log_level="ERROR",
+        log_level="error",
         log_logger_mode="deny",
         log_loggers=["homeassistant.components.noisy"],
         log_dedupe=3600,
@@ -238,7 +238,7 @@ async def test_log_allowlist(hass, webhook_mock):
     await setup_entry(
         hass,
         watch_logs=True,
-        log_level="WARNING",
+        log_level="warning",
         log_logger_mode="allow",
         log_loggers=["custom_components.helios_tilt"],
         log_dedupe=0,
