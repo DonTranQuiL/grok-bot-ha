@@ -61,6 +61,12 @@
         "state": {
           "on": "mdi:pause-circle"
         }
+      },
+      "trusted": {
+        "default": "mdi:shield-alert-outline",
+        "state": {
+          "on": "mdi:shield-alert"
+        }
       }
     },
     "button": {
@@ -121,6 +127,15 @@
     },
     "rotate_token": {
       "service": "mdi:key-change"
+    },
+    "prepare_change": {
+      "service": "mdi:content-save-cog"
+    },
+    "restore_backup": {
+      "service": "mdi:backup-restore"
+    },
+    "safe_restart": {
+      "service": "mdi:restart-alert"
     }
   }
 }

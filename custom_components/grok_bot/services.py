@@ -15,6 +15,7 @@ from homeassistant.core import (
 )
 from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers.service import async_register_admin_service
 import voluptuous as vol
 
 from .const import (
@@ -42,8 +43,11 @@ from .const import (
     SERVICE_FIX_ISSUE,
     SERVICE_HEALTH_REPORT,
     SERVICE_PING,
+    SERVICE_PREPARE_CHANGE,
     SERVICE_REPLY,
+    SERVICE_RESTORE_BACKUP,
     SERVICE_ROTATE_TOKEN,
+    SERVICE_SAFE_RESTART,
     SERVICE_SEND_EVENT,
 )
 
@@ -302,6 +306,34 @@ def async_setup_services(hass: HomeAssistant) -> None:
     async def rotate_token(call: ServiceCall) -> None:
         hub = _hub(hass, call)
         hub.access.rotate_token()
+
+    async def prepare_change(call: ServiceCall) -> ServiceResponse:
+        return await _hub(hass, call).trusted.async_prepare_change(call.data["path"])
+
+    async def restore_backup(call: ServiceCall) -> ServiceResponse:
+        return await _hub(hass, call).trusted.async_restore_backup(call.data["backup_path"])
+
+    async def safe_restart(call: ServiceCall) -> ServiceResponse:
+        return await _hub(hass, call).trusted.async_safe_restart()
+
+    entry_field = {vol.Optional(ATTR_CONFIG_ENTRY_ID): cv.string}
+    # Trusted helpers are admin-only and only work while trusted access is active.
+    for name, handler, schema in (
+        (
+            SERVICE_PREPARE_CHANGE,
+            prepare_change,
+            vol.Schema({**entry_field, vol.Required("path"): cv.string}),
+        ),
+        (
+            SERVICE_RESTORE_BACKUP,
+            restore_backup,
+            vol.Schema({**entry_field, vol.Required("backup_path"): cv.string}),
+        ),
+        (SERVICE_SAFE_RESTART, safe_restart, vol.Schema(entry_field)),
+    ):
+        async_register_admin_service(
+            hass, DOMAIN, name, handler, schema, supports_response=SupportsResponse.OPTIONAL
+        )
 
     optional = SupportsResponse.OPTIONAL
     for name, handler, schema, response in (

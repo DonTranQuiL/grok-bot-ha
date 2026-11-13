@@ -170,6 +170,9 @@ class GrokBotHub:
         from .access import AccessManager
 
         self.access = AccessManager(hass, self)
+        from .trusted import TrustedManager
+
+        self.trusted = TrustedManager(hass, self)
 
     # ----------------------------------------------------------------- setup
     @property
@@ -192,6 +195,7 @@ class GrokBotHub:
         self.last_status = data.get("last_status", STATUS_IDLE)
         self.connected = bool(data.get("connected", False))
         self.access.load(data)
+        self.trusted.load(data)
         self._unsubs.append(
             async_track_time_interval(self.hass, self._async_tick, timedelta(minutes=1))
         )
@@ -200,6 +204,7 @@ class GrokBotHub:
     def _async_tick(self, _now: datetime) -> None:
         """Roll the budget window and expire replies that happened elsewhere."""
         self.budget.prune()
+        self.trusted.async_tick()
         self.async_expire_pending()
         self._notify()
 
@@ -297,6 +302,7 @@ class GrokBotHub:
             "last_status": self.last_status,
             "connected": self.connected,
             **self.access.to_store(),
+            **self.trusted.to_store(),
         }
 
     @callback
@@ -410,6 +416,8 @@ class GrokBotHub:
             },
         }
         payload["access"] = self.access_info()
+        if trusted := self.trusted.payload_block(action_mode, action_mode == ACTION_FIX):
+            payload["access"].update(trusted)
         if conversation_id and (cb := self.access.callback_block(conversation_id)):
             payload["callback"] = cb
         return payload

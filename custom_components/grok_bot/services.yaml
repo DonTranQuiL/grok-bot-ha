@@ -244,3 +244,33 @@ rotate_token:
       selector:
         config_entry:
           integration: grok_bot
+
+prepare_change:
+  fields:
+    path:
+      required: true
+      example: configuration.yaml
+      selector:
+        text:
+    config_entry_id:
+      selector:
+        config_entry:
+          integration: grok_bot
+
+restore_backup:
+  fields:
+    backup_path:
+      required: true
+      selector:
+        text:
+    config_entry_id:
+      selector:
+        config_entry:
+          integration: grok_bot
+
+safe_restart:
+  fields:
+    config_entry_id:
+      selector:
+        config_entry:
+          integration: grok_bot

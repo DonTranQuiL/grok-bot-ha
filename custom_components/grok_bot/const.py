@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Final
 
 DOMAIN: Final = "grok_bot"
-INTEGRATION_VERSION: Final = "0.1.1"
+INTEGRATION_VERSION: Final = "0.1.2"
 PAYLOAD_SCHEMA_VERSION: Final = 1
 
 # Config entry data
@@ -379,3 +379,34 @@ PROVIDER_MCP_SERVER: Final = "mcp_server"
 ISSUE_NOT_CONNECTED: Final = "not_connected"
 SETUP_NOTIFICATION_ID: Final = "grok_bot_setup_prompt_{}"
 SIGNAL_CONNECTED: Final = "grok_bot_connected"
+
+# ----------------------------------------------------------------- trusted
+# Opt-in (Advanced) permission for repairs that need YAML edits and restarts.
+CONF_TRUSTED: Final = "trusted"
+CONF_TRUSTED_CONFIRM: Final = "trusted_confirm"
+CONF_ALLOW_YAML_EDIT: Final = "allow_yaml_edit"
+CONF_ALLOW_RESTART: Final = "allow_restart"
+CONF_TRUSTED_WINDOW: Final = "trusted_window"
+CONF_TRUSTED_WINDOW_MINUTES: Final = "trusted_window_minutes"
+DEFAULT_TRUSTED_WINDOW_MINUTES: Final = 30
+BACKUP_DIR: Final = ".grok_bot_backups"
+BACKUPS_LEN: Final = 50
+SERVICE_PREPARE_CHANGE: Final = "prepare_change"
+SERVICE_RESTORE_BACKUP: Final = "restore_backup"
+SERVICE_SAFE_RESTART: Final = "safe_restart"
+TRUSTED_FILES: Final = frozenset(
+    {"configuration.yaml", "automations.yaml", "scripts.yaml", "scenes.yaml"}
+)
+TRUSTED_DIRS: Final = ("packages",)
+TRUSTED_DENY: Final = frozenset({"secrets.yaml", ".storage", "custom_components", BACKUP_DIR})
+
+DEFAULT_OPTIONS.update(
+    {
+        CONF_TRUSTED: False,
+        CONF_TRUSTED_CONFIRM: False,
+        CONF_ALLOW_YAML_EDIT: True,
+        CONF_ALLOW_RESTART: True,
+        CONF_TRUSTED_WINDOW: True,
+        CONF_TRUSTED_WINDOW_MINUTES: DEFAULT_TRUSTED_WINDOW_MINUTES,
+    }
+)

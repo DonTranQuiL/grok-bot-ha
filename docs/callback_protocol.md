@@ -80,3 +80,21 @@ Rules enforced by the integration:
 ## 3. Awaiting reply
 
 A send that expects an answer is "awaiting" until `grok_bot.reply` (or a `reply` action) arrives with its `conversation_id`, the reply timeout passes (default 10 min, `last_status: answered_elsewhere`), or the user presses *Mark replies handled*. The first reply of any kind also clears the *Grok Bot not connected yet* repair.
+
+## 4. Trusted access (opt-in)
+
+Only for fix requests (`action_mode: fix`, `allow_fix: true`) while the user's *Trusted access* switch is on, `access` also carries:
+
+```json
+"trusted": true, "allow_yaml_edit": true, "allow_restart": true, "trusted_until": "2026-11-13T11:15:00+00:00",
+"backup_service": "grok_bot.prepare_change", "restore_service": "grok_bot.restore_backup", "restart_service": "grok_bot.safe_restart"
+```
+
+Procedure for Grok Bot (through its MCP connector, all three services are admin-only):
+
+1. `grok_bot.prepare_change` `{path}` → `{path, backup_path}`. Allowed: `configuration.yaml`, `automations.yaml`, `scripts.yaml`, `scenes.yaml`, `packages/**/*.yaml`. Never `secrets.yaml`, `.storage`, `custom_components`, dot paths or anything outside `/config`.
+2. Edit the file with the connector's file tools.
+3. `grok_bot.safe_restart` → `{valid, restarting, errors}`. It restarts only when the configuration check passes and `allow_restart` is on.
+4. On errors: `grok_bot.restore_backup` `{backup_path}`.
+
+Every step, denial, switch-on and auto-revert is audited and announced with a persistent notification.

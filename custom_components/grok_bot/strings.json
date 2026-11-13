@@ -232,7 +232,7 @@
       },
       "access": {
         "title": "Access for Grok Bot",
-        "description": "Grok Bot answers and acts in Home Assistant through an MCP connector you add in the Grok Bot app. Detected: **{mcp_status}**.\n\n**Recommended: HA-MCP.** Copy the remote URL from HA-MCP → Configure and add it as a Home Assistant connector in the Grok Bot app.\n**Fallback: core MCP Server.** Connector URL `{connector_url}` with OAuth or a long-lived access token. The LLM API you pick there (Assist = only exposed entities) decides what Grok Bot can touch.\n\nThe URL must be reachable from the internet (Nabu Casa or your external URL). The access webhook is an Advanced alternative; its level only applies to that webhook (current URL: {access_url}).",
+        "description": "Grok Bot answers and acts in Home Assistant through an MCP connector you add in the Grok Bot app. Detected: **{mcp_status}**.\n\n**Recommended: HA-MCP.** Copy the remote URL from HA-MCP → Configure and add it as a Home Assistant connector in the Grok Bot app.\n**Fallback: core MCP Server.** Connector URL `{connector_url}` with OAuth or a long-lived access token. The LLM API you pick there (Assist = only exposed entities) decides what Grok Bot can touch.\n\nThe URL must be reachable from the internet (Nabu Casa or your external URL). The access webhook is an Advanced alternative; its level only applies to that webhook (current URL: {access_url}).\n\n🚩 **Trusted access (Advanced, off by default):** lets Grok Bot edit configuration files and restart Home Assistant for fix requests. Only turn it on if you accept that risk.",
         "data": {
           "access_method": "Access method",
           "access_level": "Access webhook level",
@@ -243,17 +243,26 @@
           "access_require_pending": "Only while a request is open",
           "access_ttl": "Session length",
           "access_notify": "Notify me of every action",
-          "access_max_response_kb": "Max response size"
+          "access_max_response_kb": "Max response size",
+          "trusted": "Trusted access (YAML edits and restarts)",
+          "trusted_confirm": "I understand Grok Bot may edit configuration files and restart Home Assistant",
+          "allow_yaml_edit": "Trusted: allow YAML edits",
+          "allow_restart": "Trusted: allow restarts",
+          "trusted_window": "Trusted window (auto-revert)",
+          "trusted_window_minutes": "Trusted window length"
         },
         "data_description": {
           "access_method": "HA-MCP (or core MCP Server) is the default: Grok Bot uses your MCP connector and calls grok_bot.reply. The access webhook is for instances without an MCP connector.",
           "access_level": "Only used by the access webhook. Restarts, Supervisor/host actions and deleting integrations are always blocked.",
-          "reply_timeout": "After this many minutes an awaiting request counts as answered in the Grok Bot app (0 = never)."
+          "reply_timeout": "After this many minutes an awaiting request counts as answered in the Grok Bot app (0 = never).",
+          "trusted": "🚩 RISKY. Off by default. Lets Grok Bot edit configuration.yaml, automations.yaml, scripts.yaml, scenes.yaml and files under packages/ (never secrets.yaml, .storage or custom_components) and restart Home Assistant, only for fix requests and only while the Trusted access switch is on. A wrong edit can stop Home Assistant from starting. A backup is made before every edit (/config/.grok_bot_backups) and restarts only happen after a successful config check.",
+          "trusted_confirm": "Required to turn on Trusted access.",
+          "trusted_window": "On (recommended): the Trusted access switch turns itself off after the window. Off: it stays on until you switch it off."
         }
       },
       "install_mcp": {
         "title": "Install HA-MCP first",
-        "description": "**Install HA-MCP first.** Without an MCP connector Grok Bot can receive your messages but can't answer or fix anything in Home Assistant.\n\n1. [Install HA-MCP]({ha_mcp_install_url}) via HACS / the Marketplace and restart Home Assistant.\n2. [Add the HA-MCP integration]({ha_mcp_setup_url}) and create its server entry.\n3. Open Grok Bot's options → Access again: it detects HA-MCP and shows a ready-to-paste prompt to connect it in the Grok Bot app.\n\nPrefer the built-in option? [Set up core MCP Server]({mcp_setup_url}) instead. You can continue now: Grok Bot stays reply-only until a connector is set up.",
+        "description": "**Install HA-MCP first.** Without an MCP connector Grok Bot can receive your messages but can't answer or fix anything in Home Assistant.\n\n1. [Install HA-MCP]({ha_mcp_install_url}) via HACS / the Marketplace and restart Home Assistant.\n2. [Add the HA-MCP integration]({ha_mcp_setup_url}) and create its server entry.\n3. Open Grok Bot's options → Access again: it detects HA-MCP and shows a ready-to-paste prompt to connect it in the Grok Bot app.\n\nPrefer the built-in option? [Set up core MCP Server]({mcp_setup_url}) instead. You can continue now: Grok Bot stays reply-only until a connector is set up.\n\n🚩 **Trusted access (Advanced, off by default):** lets Grok Bot edit configuration files and restart Home Assistant for fix requests. Only turn it on if you accept that risk.",
         "data": {
           "access_method": "Access method",
           "access_level": "Access webhook level",
@@ -264,12 +273,21 @@
           "access_require_pending": "Only while a request is open",
           "access_ttl": "Session length",
           "access_notify": "Notify me of every action",
-          "access_max_response_kb": "Max response size"
+          "access_max_response_kb": "Max response size",
+          "trusted": "Trusted access (YAML edits and restarts)",
+          "trusted_confirm": "I understand Grok Bot may edit configuration files and restart Home Assistant",
+          "allow_yaml_edit": "Trusted: allow YAML edits",
+          "allow_restart": "Trusted: allow restarts",
+          "trusted_window": "Trusted window (auto-revert)",
+          "trusted_window_minutes": "Trusted window length"
         },
         "data_description": {
           "access_method": "HA-MCP (or core MCP Server) is the default: Grok Bot uses your MCP connector and calls grok_bot.reply. The access webhook is for instances without an MCP connector.",
           "access_level": "Only used by the access webhook. Restarts, Supervisor/host actions and deleting integrations are always blocked.",
-          "reply_timeout": "After this many minutes an awaiting request counts as answered in the Grok Bot app (0 = never)."
+          "reply_timeout": "After this many minutes an awaiting request counts as answered in the Grok Bot app (0 = never).",
+          "trusted": "🚩 RISKY. Off by default. Lets Grok Bot edit configuration.yaml, automations.yaml, scripts.yaml, scenes.yaml and files under packages/ (never secrets.yaml, .storage or custom_components) and restart Home Assistant, only for fix requests and only while the Trusted access switch is on. A wrong edit can stop Home Assistant from starting. A backup is made before every edit (/config/.grok_bot_backups) and restarts only happen after a successful config check.",
+          "trusted_confirm": "Required to turn on Trusted access.",
+          "trusted_window": "On (recommended): the Trusted access switch turns itself off after the window. Off: it stays on until you switch it off."
         }
       },
       "connect": {
@@ -279,7 +297,8 @@
     },
     "error": {
       "hour_over_day": "The hourly limit can't be higher than the daily limit.",
-      "event_blocked": "One of these event types can't be forwarded."
+      "event_blocked": "One of these event types can't be forwarded.",
+      "trusted_confirm_required": "Tick the confirmation to turn on Trusted access."
     },
     "abort": {
       "no_forward_entities": "Pick entities under State and event forwarding first."
@@ -405,6 +424,9 @@
     "switch": {
       "pause": {
         "name": "Pause sending"
+      },
+      "trusted": {
+        "name": "Trusted access"
       }
     },
     "button": {
@@ -449,6 +471,24 @@
     },
     "send_failed": {
       "message": "Could not deliver the message to Grok Bot."
+    },
+    "trusted_disabled": {
+      "message": "Trusted access is off. Turn it on (and confirm the warning) in Configure → Access (Advanced mode)."
+    },
+    "yaml_edit_not_allowed": {
+      "message": "Trusted access with YAML edits is not active."
+    },
+    "restart_not_allowed": {
+      "message": "Trusted access with restarts is not active."
+    },
+    "path_not_allowed": {
+      "message": "This file is not on the trusted allowlist: {value}"
+    },
+    "file_not_found": {
+      "message": "File not found: {value}"
+    },
+    "backup_not_found": {
+      "message": "Backup not found: {value}"
     }
   },
   "services": {
@@ -713,6 +753,44 @@
     "rotate_token": {
       "name": "Rotate access token",
       "description": "Creates a new token for the access webhook; the old one stops working at once.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Config entry",
+          "description": "Only needed with more than one Grok Bot entry."
+        }
+      }
+    },
+    "prepare_change": {
+      "name": "Back up a file before a change",
+      "description": "Trusted access only. Copies an allowlisted configuration file to /config/.grok_bot_backups with a timestamp and returns the backup path.",
+      "fields": {
+        "path": {
+          "name": "Path",
+          "description": "File relative to /config, for example configuration.yaml or packages/heating.yaml."
+        },
+        "config_entry_id": {
+          "name": "Config entry",
+          "description": "Only needed with more than one Grok Bot entry."
+        }
+      }
+    },
+    "restore_backup": {
+      "name": "Restore a backup",
+      "description": "Trusted access only. Puts a backup made by prepare_change back in place.",
+      "fields": {
+        "backup_path": {
+          "name": "Backup path",
+          "description": "The backup_path returned by prepare_change."
+        },
+        "config_entry_id": {
+          "name": "Config entry",
+          "description": "Only needed with more than one Grok Bot entry."
+        }
+      }
+    },
+    "safe_restart": {
+      "name": "Check the configuration and restart",
+      "description": "Trusted access with restarts allowed only. Runs a configuration check and restarts only when it is valid; otherwise returns the errors.",
       "fields": {
         "config_entry_id": {
           "name": "Config entry",

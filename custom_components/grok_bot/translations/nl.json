@@ -232,7 +232,7 @@
       },
       "access": {
         "title": "Toegang voor Grok Bot",
-        "description": "Grok Bot antwoordt en handelt in Home Assistant via een MCP-connector die je toevoegt in de Grok Bot-app. Gevonden: **{mcp_status}**.\n\n**Aanbevolen: HA-MCP.** Kopieer de externe URL uit HA-MCP → Configureren en voeg hem toe als Home Assistant-connector in de Grok Bot-app.\n**Alternatief: core MCP Server.** Connector-URL `{connector_url}` met OAuth of een langlevend toegangstoken. De LLM-API die je daar kiest (Assist = alleen blootgestelde entiteiten) bepaalt wat Grok Bot mag aanraken.\n\nDe URL moet vanaf internet bereikbaar zijn (Nabu Casa of je externe URL). De toegangs-webhook is een geavanceerd alternatief; het niveau geldt alleen voor die webhook (huidige URL: {access_url}).",
+        "description": "Grok Bot antwoordt en handelt in Home Assistant via een MCP-connector die je toevoegt in de Grok Bot-app. Gevonden: **{mcp_status}**.\n\n**Aanbevolen: HA-MCP.** Kopieer de externe URL uit HA-MCP → Configureren en voeg hem toe als Home Assistant-connector in de Grok Bot-app.\n**Alternatief: core MCP Server.** Connector-URL `{connector_url}` met OAuth of een langlevend toegangstoken. De LLM-API die je daar kiest (Assist = alleen blootgestelde entiteiten) bepaalt wat Grok Bot mag aanraken.\n\nDe URL moet vanaf internet bereikbaar zijn (Nabu Casa of je externe URL). De toegangs-webhook is een geavanceerd alternatief; het niveau geldt alleen voor die webhook (huidige URL: {access_url}).\n\n🚩 **Vertrouwde toegang (geavanceerd, standaard uit):** Grok Bot mag dan configuratiebestanden bewerken en Home Assistant herstarten bij fix-verzoeken. Zet dit alleen aan als je dat risico accepteert.",
         "data": {
           "access_method": "Toegangsmethode",
           "access_level": "Niveau toegangs-webhook",
@@ -243,17 +243,26 @@
           "access_require_pending": "Alleen zolang een verzoek open staat",
           "access_ttl": "Sessieduur",
           "access_notify": "Meld elke actie",
-          "access_max_response_kb": "Maximale antwoordgrootte"
+          "access_max_response_kb": "Maximale antwoordgrootte",
+          "trusted": "Vertrouwde toegang (YAML bewerken en herstarten)",
+          "trusted_confirm": "Ik begrijp dat Grok Bot configuratiebestanden kan bewerken en Home Assistant kan herstarten",
+          "allow_yaml_edit": "Vertrouwd: YAML bewerken toestaan",
+          "allow_restart": "Vertrouwd: herstarten toestaan",
+          "trusted_window": "Vertrouwd venster (automatisch uit)",
+          "trusted_window_minutes": "Duur vertrouwd venster"
         },
         "data_description": {
           "access_method": "HA-MCP (of core MCP Server) is standaard: Grok Bot gebruikt je MCP-connector en roept grok_bot.reply aan. De toegangs-webhook is voor systemen zonder MCP-connector.",
           "access_level": "Alleen voor de toegangs-webhook. Herstarten, Supervisor/host-acties en integraties verwijderen zijn altijd geblokkeerd.",
-          "reply_timeout": "Na zoveel minuten telt een wachtend verzoek als beantwoord in de Grok Bot-app (0 = nooit)."
+          "reply_timeout": "Na zoveel minuten telt een wachtend verzoek als beantwoord in de Grok Bot-app (0 = nooit).",
+          "trusted": "🚩 RISICOVOL. Standaard uit. Grok Bot mag dan configuration.yaml, automations.yaml, scripts.yaml, scenes.yaml en bestanden onder packages/ bewerken (nooit secrets.yaml, .storage of custom_components) en Home Assistant herstarten, alleen bij fix-verzoeken en alleen zolang de schakelaar Vertrouwde toegang aan staat. Een foute wijziging kan voorkomen dat Home Assistant opstart. Voor elke wijziging wordt een back-up gemaakt (/config/.grok_bot_backups) en herstarten gebeurt alleen na een geslaagde configuratiecontrole.",
+          "trusted_confirm": "Verplicht om Vertrouwde toegang aan te zetten.",
+          "trusted_window": "Aan (aanbevolen): de schakelaar Vertrouwde toegang gaat na het venster vanzelf uit. Uit: hij blijft aan tot je hem uitzet."
         }
       },
       "install_mcp": {
         "title": "Installeer eerst HA-MCP",
-        "description": "**Installeer eerst HA-MCP.** Zonder MCP-connector ontvangt Grok Bot je berichten wel, maar kan hij niets beantwoorden of oplossen in Home Assistant.\n\n1. [Installeer HA-MCP]({ha_mcp_install_url}) via HACS / de Marketplace en herstart Home Assistant.\n2. [Voeg de HA-MCP-integratie toe]({ha_mcp_setup_url}) en maak de server-entry aan.\n3. Open daarna Grok Bot-opties → Toegang opnieuw: HA-MCP wordt gevonden en je krijgt een kant-en-klare prompt om hem in de Grok Bot-app te koppelen.\n\nLiever de ingebouwde optie? [Stel core MCP Server in]({mcp_setup_url}). Je kunt nu doorgaan: Grok Bot blijft alleen-antwoorden tot er een connector is.",
+        "description": "**Installeer eerst HA-MCP.** Zonder MCP-connector ontvangt Grok Bot je berichten wel, maar kan hij niets beantwoorden of oplossen in Home Assistant.\n\n1. [Installeer HA-MCP]({ha_mcp_install_url}) via HACS / de Marketplace en herstart Home Assistant.\n2. [Voeg de HA-MCP-integratie toe]({ha_mcp_setup_url}) en maak de server-entry aan.\n3. Open daarna Grok Bot-opties → Toegang opnieuw: HA-MCP wordt gevonden en je krijgt een kant-en-klare prompt om hem in de Grok Bot-app te koppelen.\n\nLiever de ingebouwde optie? [Stel core MCP Server in]({mcp_setup_url}). Je kunt nu doorgaan: Grok Bot blijft alleen-antwoorden tot er een connector is.\n\n🚩 **Vertrouwde toegang (geavanceerd, standaard uit):** Grok Bot mag dan configuratiebestanden bewerken en Home Assistant herstarten bij fix-verzoeken. Zet dit alleen aan als je dat risico accepteert.",
         "data": {
           "access_method": "Toegangsmethode",
           "access_level": "Niveau toegangs-webhook",
@@ -264,12 +273,21 @@
           "access_require_pending": "Alleen zolang een verzoek open staat",
           "access_ttl": "Sessieduur",
           "access_notify": "Meld elke actie",
-          "access_max_response_kb": "Maximale antwoordgrootte"
+          "access_max_response_kb": "Maximale antwoordgrootte",
+          "trusted": "Vertrouwde toegang (YAML bewerken en herstarten)",
+          "trusted_confirm": "Ik begrijp dat Grok Bot configuratiebestanden kan bewerken en Home Assistant kan herstarten",
+          "allow_yaml_edit": "Vertrouwd: YAML bewerken toestaan",
+          "allow_restart": "Vertrouwd: herstarten toestaan",
+          "trusted_window": "Vertrouwd venster (automatisch uit)",
+          "trusted_window_minutes": "Duur vertrouwd venster"
         },
         "data_description": {
           "access_method": "HA-MCP (of core MCP Server) is standaard: Grok Bot gebruikt je MCP-connector en roept grok_bot.reply aan. De toegangs-webhook is voor systemen zonder MCP-connector.",
           "access_level": "Alleen voor de toegangs-webhook. Herstarten, Supervisor/host-acties en integraties verwijderen zijn altijd geblokkeerd.",
-          "reply_timeout": "Na zoveel minuten telt een wachtend verzoek als beantwoord in de Grok Bot-app (0 = nooit)."
+          "reply_timeout": "Na zoveel minuten telt een wachtend verzoek als beantwoord in de Grok Bot-app (0 = nooit).",
+          "trusted": "🚩 RISICOVOL. Standaard uit. Grok Bot mag dan configuration.yaml, automations.yaml, scripts.yaml, scenes.yaml en bestanden onder packages/ bewerken (nooit secrets.yaml, .storage of custom_components) en Home Assistant herstarten, alleen bij fix-verzoeken en alleen zolang de schakelaar Vertrouwde toegang aan staat. Een foute wijziging kan voorkomen dat Home Assistant opstart. Voor elke wijziging wordt een back-up gemaakt (/config/.grok_bot_backups) en herstarten gebeurt alleen na een geslaagde configuratiecontrole.",
+          "trusted_confirm": "Verplicht om Vertrouwde toegang aan te zetten.",
+          "trusted_window": "Aan (aanbevolen): de schakelaar Vertrouwde toegang gaat na het venster vanzelf uit. Uit: hij blijft aan tot je hem uitzet."
         }
       },
       "connect": {
@@ -279,7 +297,8 @@
     },
     "error": {
       "hour_over_day": "De uurlimiet mag niet hoger zijn dan de daglimiet.",
-      "event_blocked": "Een van deze eventtypes kan niet worden doorgestuurd."
+      "event_blocked": "Een van deze eventtypes kan niet worden doorgestuurd.",
+      "trusted_confirm_required": "Vink de bevestiging aan om Vertrouwde toegang aan te zetten."
     },
     "abort": {
       "no_forward_entities": "Kies eerst entiteiten onder Status- en eventdoorsturing."
@@ -405,6 +424,9 @@
     "switch": {
       "pause": {
         "name": "Versturen pauzeren"
+      },
+      "trusted": {
+        "name": "Vertrouwde toegang"
       }
     },
     "button": {
@@ -449,6 +471,24 @@
     },
     "send_failed": {
       "message": "Het bericht kon niet bij Grok Bot worden afgeleverd."
+    },
+    "trusted_disabled": {
+      "message": "Vertrouwde toegang staat uit. Zet hem aan (en bevestig de waarschuwing) via Configureren → Toegang (geavanceerde modus)."
+    },
+    "yaml_edit_not_allowed": {
+      "message": "Vertrouwde toegang met YAML bewerken is niet actief."
+    },
+    "restart_not_allowed": {
+      "message": "Vertrouwde toegang met herstarten is niet actief."
+    },
+    "path_not_allowed": {
+      "message": "Dit bestand staat niet op de vertrouwde lijst: {value}"
+    },
+    "file_not_found": {
+      "message": "Bestand niet gevonden: {value}"
+    },
+    "backup_not_found": {
+      "message": "Back-up niet gevonden: {value}"
     }
   },
   "services": {
@@ -713,6 +753,44 @@
     "rotate_token": {
       "name": "Toegangstoken vernieuwen",
       "description": "Maakt een nieuw token voor de toegangs-webhook; het oude werkt direct niet meer.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Configuratie-entry",
+          "description": "Alleen nodig bij meer dan een Grok Bot-entry."
+        }
+      }
+    },
+    "prepare_change": {
+      "name": "Back-up maken voor een wijziging",
+      "description": "Alleen met vertrouwde toegang. Kopieert een toegestaan configuratiebestand met tijdstempel naar /config/.grok_bot_backups en geeft het back-uppad terug.",
+      "fields": {
+        "path": {
+          "name": "Pad",
+          "description": "Bestand relatief aan /config, bijvoorbeeld configuration.yaml of packages/heating.yaml."
+        },
+        "config_entry_id": {
+          "name": "Configuratie-entry",
+          "description": "Alleen nodig bij meer dan een Grok Bot-entry."
+        }
+      }
+    },
+    "restore_backup": {
+      "name": "Back-up terugzetten",
+      "description": "Alleen met vertrouwde toegang. Zet een back-up van prepare_change terug.",
+      "fields": {
+        "backup_path": {
+          "name": "Back-uppad",
+          "description": "Het backup_path dat prepare_change teruggaf."
+        },
+        "config_entry_id": {
+          "name": "Configuratie-entry",
+          "description": "Alleen nodig bij meer dan een Grok Bot-entry."
+        }
+      }
+    },
+    "safe_restart": {
+      "name": "Configuratie controleren en herstarten",
+      "description": "Alleen met vertrouwde toegang en herstarten toegestaan. Controleert de configuratie en herstart alleen als die geldig is; anders komen de fouten terug.",
       "fields": {
         "config_entry_id": {
           "name": "Configuratie-entry",

@@ -45,6 +45,8 @@ from .const import (
     CONF_ACCESS_NOTIFY,
     CONF_ACCESS_REQUIRE_PENDING,
     CONF_ACCESS_TTL,
+    CONF_ALLOW_RESTART,
+    CONF_ALLOW_YAML_EDIT,
     CONF_AUTH_HEADER,
     CONF_AUTOMATIONS_ACTION,
     CONF_ENABLE_CONVERSATION,
@@ -78,6 +80,10 @@ from .const import (
     CONF_TEMPLATE_EVENT,
     CONF_TEMPLATE_ISSUE,
     CONF_TEMPLATE_STATE,
+    CONF_TRUSTED,
+    CONF_TRUSTED_CONFIRM,
+    CONF_TRUSTED_WINDOW,
+    CONF_TRUSTED_WINDOW_MINUTES,
     CONF_UNAVAILABLE_ACTION,
     CONF_UNAVAILABLE_MINUTES,
     CONF_WATCH_AUTOMATIONS,
@@ -550,13 +556,19 @@ class GrokBotOptionsFlow(OptionsFlow):
         """Re-detects HA-MCP / MCP Server each time; webhook settings in Advanced."""
         advanced = self._opts[CONF_MODE] == MODE_ADVANCED
         step_id = access_step_id(self.hass)
+        errors: dict[str, str] = {}
         if user_input is not None:
             values = {k: int(v) if isinstance(v, float) else v for k, v in user_input.items()}
-            self._opts.update(values)
-            if ha_mcp_installed(self.hass):
-                return await self.async_step_connect()
-            return await self.async_step_init()
-        o = self._opts
+            if values.get(CONF_TRUSTED) and not values.get(CONF_TRUSTED_CONFIRM):
+                errors[CONF_TRUSTED_CONFIRM] = "trusted_confirm_required"
+            else:
+                if not values.get(CONF_TRUSTED, self._opts[CONF_TRUSTED]):
+                    values[CONF_TRUSTED_CONFIRM] = False
+                self._opts.update(values)
+                if ha_mcp_installed(self.hass):
+                    return await self.async_step_connect()
+                return await self.async_step_init()
+        o = {**self._opts, **(user_input or {})}
         schema = access_schema(step_id, o)
         fields: dict[Any, Any] = dict(schema.schema)
         fields[vol.Required(CONF_REPLY_TIMEOUT, default=o[CONF_REPLY_TIMEOUT])] = _num(
@@ -584,6 +596,15 @@ class GrokBotOptionsFlow(OptionsFlow):
                     vol.Required(
                         CONF_ACCESS_MAX_RESPONSE, default=o[CONF_ACCESS_MAX_RESPONSE]
                     ): _num(4, 1024, unit="kB"),
+                    # Trusted: YAML edits + restarts for repairs. Off by default.
+                    vol.Required(CONF_TRUSTED, default=o[CONF_TRUSTED]): bool,
+                    vol.Required(CONF_TRUSTED_CONFIRM, default=o[CONF_TRUSTED_CONFIRM]): bool,
+                    vol.Required(CONF_ALLOW_YAML_EDIT, default=o[CONF_ALLOW_YAML_EDIT]): bool,
+                    vol.Required(CONF_ALLOW_RESTART, default=o[CONF_ALLOW_RESTART]): bool,
+                    vol.Required(CONF_TRUSTED_WINDOW, default=o[CONF_TRUSTED_WINDOW]): bool,
+                    vol.Required(
+                        CONF_TRUSTED_WINDOW_MINUTES, default=o[CONF_TRUSTED_WINDOW_MINUTES]
+                    ): _num(5, 1440, unit="min"),
                 }
             )
         data = getattr(self.config_entry, "runtime_data", None)
@@ -592,6 +613,7 @@ class GrokBotOptionsFlow(OptionsFlow):
             step_id=step_id,
             data_schema=vol.Schema(fields),
             description_placeholders=access_placeholders(self.hass, access_url),
+            errors=errors,
         )
 
     async def async_step_install_mcp(
