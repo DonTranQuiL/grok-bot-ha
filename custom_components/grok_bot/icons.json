@@ -1,0 +1,54 @@
+{
+  "entity": {
+    "sensor": {
+      "last_reply": { "default": "mdi:message-reply-text" },
+      "last_status": {
+        "default": "mdi:send-check",
+        "state": {
+          "failed": "mdi:send-lock",
+          "auth_failed": "mdi:key-alert",
+          "dropped_budget": "mdi:cash-remove",
+          "dropped_paused": "mdi:pause-circle",
+          "dropped_cooldown": "mdi:timer-sand",
+          "dropped_quiet_hours": "mdi:sleep",
+          "dropped_too_large": "mdi:file-alert",
+          "idle": "mdi:robot-happy-outline"
+        }
+      },
+      "last_sent": { "default": "mdi:send-clock" },
+      "sends_hour": { "default": "mdi:counter" },
+      "sends_day": { "default": "mdi:calendar-clock" },
+      "sent_total": { "default": "mdi:send" },
+      "failed_total": { "default": "mdi:alert-circle" },
+      "dropped_total": { "default": "mdi:delete-clock" },
+      "pending": { "default": "mdi:message-processing" }
+    },
+    "switch": {
+      "pause": {
+        "default": "mdi:play-circle",
+        "state": { "on": "mdi:pause-circle" }
+      }
+    },
+    "button": {
+      "ping": { "default": "mdi:access-point-check" },
+      "health_report": { "default": "mdi:heart-pulse" },
+      "fix_repairs": { "default": "mdi:auto-fix" },
+      "reset_budget": { "default": "mdi:restore" }
+    },
+    "notify": {
+      "notify": { "default": "mdi:robot" }
+    },
+    "conversation": {
+      "conversation": { "default": "mdi:robot-outline" }
+    }
+  },
+  "services": {
+    "ask": { "service": "mdi:robot-outline" },
+    "send_event": { "service": "mdi:send" },
+    "diagnose": { "service": "mdi:stethoscope" },
+    "fix_issue": { "service": "mdi:auto-fix" },
+    "health_report": { "service": "mdi:heart-pulse" },
+    "ping": { "service": "mdi:access-point-check" },
+    "reply": { "service": "mdi:message-reply-text" }
+  }
+}

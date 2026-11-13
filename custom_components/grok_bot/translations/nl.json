@@ -1,0 +1,583 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Grok Bot koppelen",
+        "description": "Maak in de Grok Bot-app een webhook-routine aan en plak hier de webhook-URL en de volledige waarde van de Authorization-header. Elk bericht dat Home Assistant naar deze webhook stuurt, kost Grok Bot-verbruik.",
+        "data": {
+          "name": "Naam",
+          "webhook_url": "Webhook-URL",
+          "auth_header": "Waarde van de Authorization-header",
+          "send_test": "Testping versturen (telt als één Grok Bot-run)"
+        },
+        "data_description": {
+          "webhook_url": "De https://-URL van de Grok Bot-routinewebhook.",
+          "auth_header": "Plak de waarde precies zoals in de app (bijvoorbeeld `Bearer …`). Hij wordt geheim opgeslagen en nooit gelogd.",
+          "send_test": "Controleert URL en header door {\"type\": \"ping\"} te versturen."
+        }
+      },
+      "preset": {
+        "title": "Wat mag Grok Bot ontvangen?",
+        "description": "Kies een startpunt. Je kunt dit altijd aanpassen in de opties; er wordt niets automatisch verstuurd tenzij je dat toestaat.",
+        "data": {
+          "preset": "Voorinstelling"
+        },
+        "data_description": {
+          "preset": "Aangepast opent de Geavanceerde modus met alle opties."
+        }
+      },
+      "reauth_confirm": {
+        "title": "Grok Bot-autorisatie mislukt",
+        "description": "De webhook heeft de Authorization-header geweigerd. Plak de huidige waarde uit de Grok Bot-app.",
+        "data": {
+          "auth_header": "Waarde van de Authorization-header",
+          "send_test": "Testping versturen (telt als één Grok Bot-run)"
+        }
+      },
+      "reconfigure": {
+        "title": "Grok Bot-webhook wijzigen",
+        "data": {
+          "webhook_url": "Webhook-URL",
+          "auth_header": "Waarde van de Authorization-header",
+          "send_test": "Testping versturen (telt als één Grok Bot-run)"
+        }
+      }
+    },
+    "error": {
+      "invalid_url": "Vul een volledige https://-webhook-URL in.",
+      "invalid_auth": "De webhook heeft de Authorization-header geweigerd.",
+      "cannot_connect": "De webhook is niet bereikbaar.",
+      "unknown": "Onverwachte fout."
+    },
+    "abort": {
+      "already_configured": "Deze webhook is al ingesteld.",
+      "reauth_successful": "Opnieuw authenticeren is gelukt.",
+      "reconfigure_successful": "Opnieuw configureren is gelukt."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Grok Bot-opties",
+        "description": "Modus: {mode}. Voorinstelling: {preset}. Elke verzending kost Grok Bot-verbruik en telt mee voor je budget.",
+        "menu_options": {
+          "preset": "Voorinstelling (eenvoudig)",
+          "features": "Functies (notify, Assist, inkomende webhook)",
+          "budget": "Budget, limieten en stille uren",
+          "forwarding": "Status- en eventdoorsturing",
+          "entity_filter": "Filters per entiteit",
+          "watchers": "Probleembewaking (fouten, reparaties, onbeschikbaar)",
+          "templates": "Berichtsjablonen",
+          "advanced_mode": "Naar Geavanceerde modus",
+          "simple_mode": "Naar Eenvoudige modus",
+          "finish": "Opslaan en sluiten"
+        }
+      },
+      "preset": {
+        "title": "Voorinstelling",
+        "description": "Alleen vragen: alleen je eigen acties, knoppen en de kaart versturen iets. Alleen fouten: gelogde fouten, mislukte automatiseringen en mislukte integraties worden gemeld. Fouten + reparaties, diagnose: ook reparatiemeldingen, en Grok Bot onderzoekt ze. Aangepast: Geavanceerde modus.",
+        "data": {
+          "preset": "Voorinstelling"
+        }
+      },
+      "features": {
+        "title": "Functies",
+        "description": "Pad van de inkomende webhook (alleen als ingeschakeld, POST JSON met `message`): {webhook_path}",
+        "data": {
+          "enable_notify": "Notify-entiteit (notify.send_message naar Grok Bot)",
+          "enable_conversation": "Assist-gespreksagent",
+          "enable_inbound_webhook": "Inkomende antwoord-webhook",
+          "include_attributes": "Entiteitsattributen meesturen als context"
+        },
+        "data_description": {
+          "enable_conversation": "Assist antwoordt direct dat het bericht is verstuurd; het echte antwoord van Grok Bot komt later.",
+          "enable_inbound_webhook": "Grok Bot kan antwoorden ook naar een geheime Home Assistant-webhook sturen, naast grok_bot.reply.",
+          "include_attributes": "Uit stuurt alleen statussen, zodat berichten klein blijven."
+        }
+      },
+      "budget": {
+        "title": "Budget",
+        "description": "Verzendingen boven het budget worden verworpen, niet in de wachtrij gezet. Handmatige acties tellen ook mee, tenzij bypass_budget is gezet.",
+        "data": {
+          "max_per_hour": "Max. verzendingen per uur",
+          "max_per_day": "Max. verzendingen per 24 uur",
+          "min_interval": "Minimaal aantal seconden tussen doorsturingen van dezelfde entiteit of hetzelfde event",
+          "quiet_hours": "Stille uren (automatische verzendingen verwerpen)",
+          "quiet_start": "Begin stille uren",
+          "quiet_end": "Einde stille uren",
+          "max_payload_bytes": "Maximale berichtgrootte"
+        }
+      },
+      "forwarding": {
+        "title": "Status- en eventdoorsturing",
+        "description": "Alleen de entiteiten en eventtypes die je hier kiest worden doorgestuurd. Laat leeg om niets door te sturen.",
+        "data": {
+          "forward_entities": "Door te sturen entiteiten",
+          "state_action": "Actiemodus voor statuswijzigingen",
+          "ignore_unavailable": "Wijzigingen naar onbeschikbaar/onbekend negeren",
+          "forward_events": "Door te sturen eventtypes",
+          "event_action": "Actiemodus voor events"
+        },
+        "data_description": {
+          "forward_events": "Typ een eventtype en druk op Enter, bijv. `zha_event`. state_changed en grok_bot_*-events zijn geblokkeerd."
+        }
+      },
+      "entity_filter": {
+        "title": "Filter per entiteit",
+        "description": "Kies een doorgestuurde entiteit om een filter toe te voegen of te wijzigen.",
+        "data": {
+          "filter_entity": "Entiteit"
+        }
+      },
+      "filter_details": {
+        "title": "Filter voor {entity_id}",
+        "description": "Zonder filter wordt elke statuswijziging doorgestuurd (na het minimale interval). Drempels gaan af zodra de waarde het bereik in gaat.",
+        "data": {
+          "to_states": "Alleen als de nieuwe status een van deze is",
+          "attribute": "Dit attribuut gebruiken in plaats van de status",
+          "above": "Alleen boven",
+          "below": "Alleen onder",
+          "min_interval": "Minimaal aantal seconden tussen doorsturingen",
+          "remove": "Dit filter verwijderen"
+        }
+      },
+      "watchers": {
+        "title": "Probleembewaking",
+        "description": "Elke bewaking staat uit tot je hem inschakelt. Kies per bewaking of Grok Bot alleen meldt, diagnosticeert of veilige reparaties mag proberen.",
+        "sections": {
+          "logs": {
+            "name": "Gelogde fouten en waarschuwingen",
+            "data": {
+              "watch_logs": "Logregels doorsturen",
+              "log_level": "Minimaal niveau",
+              "log_logger_mode": "Loggerfilter",
+              "log_loggers": "Loggers / integraties",
+              "log_dedupe": "Identieke fouten groeperen gedurende (seconden)",
+              "log_action": "Actiemodus"
+            },
+            "data_description": {
+              "log_loggers": "Loggernamen zoals `homeassistant.components.zha` of `custom_components.helios_tilt`."
+            }
+          },
+          "repairs": {
+            "name": "Reparatiemeldingen",
+            "data": {
+              "watch_repairs": "Nieuwe reparatiemeldingen doorsturen",
+              "repairs_action": "Actiemodus"
+            }
+          },
+          "unavailable": {
+            "name": "Onbeschikbare entiteiten",
+            "data": {
+              "watch_unavailable": "Te bewaken entiteiten",
+              "unavailable_minutes": "Onbeschikbaar of onbekend gedurende (minuten)",
+              "unavailable_action": "Actiemodus"
+            }
+          },
+          "automations": {
+            "name": "Mislukte automatiseringen en scripts",
+            "data": {
+              "watch_automations": "Fouten van automatiseringen en scripts doorsturen",
+              "automations_action": "Actiemodus"
+            }
+          },
+          "setup": {
+            "name": "Mislukte integratie-installaties",
+            "data": {
+              "watch_setup": "Integraties doorsturen die niet starten",
+              "setup_action": "Actiemodus"
+            }
+          }
+        }
+      },
+      "templates": {
+        "title": "Berichtsjablonen",
+        "description": "Optionele Jinja-sjablonen voor het veld `message`. Laat leeg voor de standaardtekst. Variabelen: status: `entity_id`, `from_state`, `to_state`; event: `event_type`, `event_data`; problemen: `kind`, `issue`.",
+        "data": {
+          "template_state": "Bericht bij statuswijziging",
+          "template_event": "Bericht bij event",
+          "template_issue": "Bericht bij probleem"
+        }
+      }
+    },
+    "error": {
+      "hour_over_day": "De uurlimiet mag niet hoger zijn dan de daglimiet.",
+      "event_blocked": "Een van deze eventtypes kan niet worden doorgestuurd."
+    },
+    "abort": {
+      "no_forward_entities": "Kies eerst entiteiten onder Status- en eventdoorsturing."
+    }
+  },
+  "selector": {
+    "preset": {
+      "options": {
+        "ask_only": "Alleen vragen (niets automatisch)",
+        "errors_only": "Alleen fouten (melden)",
+        "errors_repairs_diagnose": "Fouten + reparaties, diagnose",
+        "custom": "Aangepast (Geavanceerde modus)"
+      }
+    },
+    "action_mode": {
+      "options": {
+        "report": "Alleen melden",
+        "diagnose": "Diagnose (Grok Bot onderzoekt en antwoordt)",
+        "fix": "Diagnose en repareren (veilige, omkeerbare reparaties toegestaan)"
+      }
+    },
+    "log_level": {
+      "options": {
+        "WARNING": "Waarschuwing",
+        "ERROR": "Fout",
+        "CRITICAL": "Kritiek"
+      }
+    },
+    "logger_mode": {
+      "options": {
+        "all": "Alle loggers",
+        "allow": "Alleen deze loggers",
+        "deny": "Alle behalve deze loggers"
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "last_reply": {
+        "name": "Laatste antwoord"
+      },
+      "last_status": {
+        "name": "Laatste status",
+        "state": {
+          "idle": "Inactief",
+          "sent": "Verstuurd",
+          "failed": "Mislukt",
+          "auth_failed": "Autorisatie mislukt",
+          "dropped_budget": "Verworpen (budget)",
+          "dropped_paused": "Verworpen (gepauzeerd)",
+          "dropped_cooldown": "Verworpen (afkoeltijd)",
+          "dropped_quiet_hours": "Verworpen (stille uren)",
+          "dropped_too_large": "Verworpen (te groot)"
+        }
+      },
+      "last_sent": {
+        "name": "Laatst verstuurd"
+      },
+      "sends_hour": {
+        "name": "Verzendingen afgelopen uur"
+      },
+      "sends_day": {
+        "name": "Verzendingen afgelopen 24 uur"
+      },
+      "sent_total": {
+        "name": "Totaal verstuurd"
+      },
+      "failed_total": {
+        "name": "Totaal mislukt"
+      },
+      "dropped_total": {
+        "name": "Totaal verworpen"
+      },
+      "pending": {
+        "name": "Wacht op antwoord"
+      }
+    },
+    "switch": {
+      "pause": {
+        "name": "Versturen pauzeren"
+      }
+    },
+    "button": {
+      "ping": {
+        "name": "Testping versturen"
+      },
+      "health_report": {
+        "name": "Gezondheidsrapport versturen"
+      },
+      "fix_repairs": {
+        "name": "Open reparaties oplossen"
+      },
+      "reset_budget": {
+        "name": "Budgettellers resetten"
+      }
+    }
+  },
+  "exceptions": {
+    "entry_not_found": {
+      "message": "Geen geladen Grok Bot-item met id {entry_id}."
+    },
+    "not_loaded": {
+      "message": "Grok Bot is niet ingesteld of niet geladen."
+    },
+    "multiple_entries": {
+      "message": "Er zijn meerdere Grok Bot-items geladen; geef config_entry_id op."
+    },
+    "issue_not_found": {
+      "message": "Reparatiemelding {issue_id} is niet gevonden."
+    },
+    "nothing_to_diagnose": {
+      "message": "Geef een bericht, een issue_id, een target_config_entry_id of contextentiteiten op."
+    },
+    "send_failed": {
+      "message": "Het bericht kon niet bij Grok Bot worden afgeleverd."
+    }
+  },
+  "services": {
+    "ask": {
+      "name": "Grok Bot vragen",
+      "description": "Stuur een bericht of taak naar Grok Bot. Telt mee voor het budget.",
+      "fields": {
+        "message": {
+          "name": "Bericht",
+          "description": "De tekst voor Grok Bot."
+        },
+        "action_mode": {
+          "name": "Actiemodus",
+          "description": "Alleen melden, diagnose, of diagnose en repareren."
+        },
+        "data": {
+          "name": "Extra gegevens",
+          "description": "Extra JSON-gegevens voor Grok Bot."
+        },
+        "context_entities": {
+          "name": "Contextentiteiten",
+          "description": "Hun huidige status wordt aan het bericht toegevoegd."
+        },
+        "reply_to": {
+          "name": "Antwoord naar",
+          "description": "Waar het antwoord van Grok Bot ook heen gaat: een input_text, een notify-entiteit, notify.<service> of persistent_notification."
+        },
+        "conversation_id": {
+          "name": "Gespreks-ID",
+          "description": "Hergebruik om een gesprek voort te zetten; leeg maakt een nieuwe aan."
+        },
+        "notify_user": {
+          "name": "Mij melden",
+          "description": "Vraag Grok Bot je ook een bericht te sturen in de Grok Bot-app."
+        },
+        "bypass_budget": {
+          "name": "Budget negeren",
+          "description": "Ook versturen als het uur-/dagbudget op is (telt wel mee; de pauzeschakelaar blijft gelden)."
+        },
+        "config_entry_id": {
+          "name": "Grok Bot-item",
+          "description": "Alleen nodig als je meer dan één Grok Bot-item hebt."
+        }
+      }
+    },
+    "send_event": {
+      "name": "Event versturen",
+      "description": "Stuur een eigen event naar Grok Bot. Telt mee voor het budget.",
+      "fields": {
+        "event_type": {
+          "name": "Eventtype",
+          "description": "Naam van je event."
+        },
+        "message": {
+          "name": "Bericht",
+          "description": "De tekst voor Grok Bot."
+        },
+        "data": {
+          "name": "Extra gegevens",
+          "description": "Extra JSON-gegevens voor Grok Bot."
+        },
+        "action_mode": {
+          "name": "Actiemodus",
+          "description": "Alleen melden, diagnose, of diagnose en repareren."
+        },
+        "context_entities": {
+          "name": "Contextentiteiten",
+          "description": "Hun huidige status wordt aan het bericht toegevoegd."
+        },
+        "reply_to": {
+          "name": "Antwoord naar",
+          "description": "Waar het antwoord van Grok Bot ook heen gaat: een input_text, een notify-entiteit, notify.<service> of persistent_notification."
+        },
+        "conversation_id": {
+          "name": "Gespreks-ID",
+          "description": "Hergebruik om een gesprek voort te zetten; leeg maakt een nieuwe aan."
+        },
+        "notify_user": {
+          "name": "Mij melden",
+          "description": "Vraag Grok Bot je ook een bericht te sturen in de Grok Bot-app."
+        },
+        "bypass_budget": {
+          "name": "Budget negeren",
+          "description": "Ook versturen als het uur-/dagbudget op is (telt wel mee; de pauzeschakelaar blijft gelden)."
+        },
+        "config_entry_id": {
+          "name": "Grok Bot-item",
+          "description": "Alleen nodig als je meer dan één Grok Bot-item hebt."
+        }
+      }
+    },
+    "diagnose": {
+      "name": "Diagnose",
+      "description": "Vraag Grok Bot een probleem te onderzoeken en te antwoorden, zonder iets te wijzigen.",
+      "fields": {
+        "message": {
+          "name": "Bericht",
+          "description": "De tekst voor Grok Bot."
+        },
+        "issue_id": {
+          "name": "ID van reparatiemelding",
+          "description": "ID van een reparatiemelding."
+        },
+        "issue_domain": {
+          "name": "Domein van reparatiemelding",
+          "description": "Integratie die de melding maakte (wordt opgezocht als leeg)."
+        },
+        "target_config_entry_id": {
+          "name": "Integratie-item",
+          "description": "Config entry waar Grok Bot naar moet kijken."
+        },
+        "context_entities": {
+          "name": "Contextentiteiten",
+          "description": "Hun huidige status wordt aan het bericht toegevoegd."
+        },
+        "reply_to": {
+          "name": "Antwoord naar",
+          "description": "Waar het antwoord van Grok Bot ook heen gaat: een input_text, een notify-entiteit, notify.<service> of persistent_notification."
+        },
+        "conversation_id": {
+          "name": "Gespreks-ID",
+          "description": "Hergebruik om een gesprek voort te zetten; leeg maakt een nieuwe aan."
+        },
+        "notify_user": {
+          "name": "Mij melden",
+          "description": "Vraag Grok Bot je ook een bericht te sturen in de Grok Bot-app."
+        },
+        "bypass_budget": {
+          "name": "Budget negeren",
+          "description": "Ook versturen als het uur-/dagbudget op is (telt wel mee; de pauzeschakelaar blijft gelden)."
+        },
+        "config_entry_id": {
+          "name": "Grok Bot-item",
+          "description": "Alleen nodig als je meer dan één Grok Bot-item hebt."
+        }
+      }
+    },
+    "fix_issue": {
+      "name": "Probleem oplossen",
+      "description": "Vraag Grok Bot een probleem te diagnosticeren en een veilige, omkeerbare reparatie te proberen (allow_fix=true).",
+      "fields": {
+        "message": {
+          "name": "Bericht",
+          "description": "De tekst voor Grok Bot."
+        },
+        "issue_id": {
+          "name": "ID van reparatiemelding",
+          "description": "ID van een reparatiemelding."
+        },
+        "issue_domain": {
+          "name": "Domein van reparatiemelding",
+          "description": "Integratie die de melding maakte (wordt opgezocht als leeg)."
+        },
+        "target_config_entry_id": {
+          "name": "Integratie-item",
+          "description": "Config entry waar Grok Bot naar moet kijken."
+        },
+        "context_entities": {
+          "name": "Contextentiteiten",
+          "description": "Hun huidige status wordt aan het bericht toegevoegd."
+        },
+        "reply_to": {
+          "name": "Antwoord naar",
+          "description": "Waar het antwoord van Grok Bot ook heen gaat: een input_text, een notify-entiteit, notify.<service> of persistent_notification."
+        },
+        "conversation_id": {
+          "name": "Gespreks-ID",
+          "description": "Hergebruik om een gesprek voort te zetten; leeg maakt een nieuwe aan."
+        },
+        "notify_user": {
+          "name": "Mij melden",
+          "description": "Vraag Grok Bot je ook een bericht te sturen in de Grok Bot-app."
+        },
+        "bypass_budget": {
+          "name": "Budget negeren",
+          "description": "Ook versturen als het uur-/dagbudget op is (telt wel mee; de pauzeschakelaar blijft gelden)."
+        },
+        "config_entry_id": {
+          "name": "Grok Bot-item",
+          "description": "Alleen nodig als je meer dan één Grok Bot-item hebt."
+        }
+      }
+    },
+    "health_report": {
+      "name": "Gezondheidsrapport",
+      "description": "Stuur open reparaties, mislukte integraties, onbeschikbare entiteiten en recente fouten.",
+      "fields": {
+        "action_mode": {
+          "name": "Actiemodus",
+          "description": "Alleen melden, diagnose, of diagnose en repareren."
+        },
+        "context_entities": {
+          "name": "Contextentiteiten",
+          "description": "Hun huidige status wordt aan het bericht toegevoegd."
+        },
+        "reply_to": {
+          "name": "Antwoord naar",
+          "description": "Waar het antwoord van Grok Bot ook heen gaat: een input_text, een notify-entiteit, notify.<service> of persistent_notification."
+        },
+        "conversation_id": {
+          "name": "Gespreks-ID",
+          "description": "Hergebruik om een gesprek voort te zetten; leeg maakt een nieuwe aan."
+        },
+        "notify_user": {
+          "name": "Mij melden",
+          "description": "Vraag Grok Bot je ook een bericht te sturen in de Grok Bot-app."
+        },
+        "bypass_budget": {
+          "name": "Budget negeren",
+          "description": "Ook versturen als het uur-/dagbudget op is (telt wel mee; de pauzeschakelaar blijft gelden)."
+        },
+        "config_entry_id": {
+          "name": "Grok Bot-item",
+          "description": "Alleen nodig als je meer dan één Grok Bot-item hebt."
+        }
+      }
+    },
+    "ping": {
+      "name": "Ping",
+      "description": "Stuur een testping naar de Grok Bot-webhook.",
+      "fields": {
+        "bypass_budget": {
+          "name": "Budget negeren",
+          "description": "Ook versturen als het uur-/dagbudget op is (telt wel mee; de pauzeschakelaar blijft gelden)."
+        },
+        "config_entry_id": {
+          "name": "Grok Bot-item",
+          "description": "Alleen nodig als je meer dan één Grok Bot-item hebt."
+        }
+      }
+    },
+    "reply": {
+      "name": "Antwoord",
+      "description": "Gebruikt door Grok Bot om te antwoorden: werkt de sensor Laatste antwoord bij, vuurt grok_bot_reply af en levert af bij reply_to.",
+      "fields": {
+        "message": {
+          "name": "Bericht",
+          "description": "Het antwoord van Grok Bot."
+        },
+        "conversation_id": {
+          "name": "Gespreks-ID",
+          "description": "Hergebruik om een gesprek voort te zetten; leeg maakt een nieuwe aan."
+        },
+        "title": {
+          "name": "Titel",
+          "description": "Optionele titel van het antwoord."
+        },
+        "reply_to": {
+          "name": "Antwoord naar",
+          "description": "Waar het antwoord van Grok Bot ook heen gaat: een input_text, een notify-entiteit, notify.<service> of persistent_notification."
+        },
+        "data": {
+          "name": "Extra gegevens",
+          "description": "Extra JSON-gegevens voor Grok Bot."
+        },
+        "config_entry_id": {
+          "name": "Grok Bot-item",
+          "description": "Alleen nodig als je meer dan één Grok Bot-item hebt."
+        }
+      }
+    }
+  }
+}

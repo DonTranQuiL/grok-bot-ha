@@ -1,0 +1,119 @@
+blueprint:
+  name: Grok Bot - ask when a sensor crosses a threshold
+  description: >-
+    Sends one message to Grok Bot when a numeric sensor goes above (or below) a
+    value and stays there for a while. Each run costs one Grok Bot send and counts
+    toward the integration's budget.
+  domain: automation
+  source_url: https://github.com/DonTranQuiL/grok-bot-ha/blob/main/blueprints/automation/grok_bot/ask_on_threshold.yaml
+  author: DonTranQuiL
+  input:
+    sensor:
+      name: Sensor
+      selector:
+        entity:
+          domain: sensor
+    above:
+      name: Above
+      description: Leave empty to only use "Below".
+      default:
+      selector:
+        number:
+          min: -1000
+          max: 100000
+          step: 0.1
+          mode: box
+    below:
+      name: Below
+      default:
+      selector:
+        number:
+          min: -1000
+          max: 100000
+          step: 0.1
+          mode: box
+    for_minutes:
+      name: For (minutes)
+      default: 5
+      selector:
+        number:
+          min: 0
+          max: 1440
+          unit_of_measurement: min
+    message:
+      name: Message
+      default: "{{ state_attr(sensor, 'friendly_name') or sensor }} is {{ states(sensor) }}. What should I do?"
+      selector:
+        text:
+          multiline: true
+    context:
+      name: Extra context entities
+      default: []
+      selector:
+        entity:
+          multiple: true
+    action_mode:
+      name: Action mode
+      default: diagnose
+      selector:
+        select:
+          options:
+            - label: Report only
+              value: report
+            - label: Diagnose
+              value: diagnose
+            - label: Diagnose and fix
+              value: fix
+    reply_to:
+      name: Reply to (optional)
+      description: input_text, notify entity, notify.<service> or persistent_notification.
+      default: ""
+      selector:
+        text:
+    cooldown:
+      name: Cooldown (minutes)
+      description: Minimum time between two messages.
+      default: 60
+      selector:
+        number:
+          min: 0
+          max: 1440
+          unit_of_measurement: min
+
+mode: single
+max_exceeded: silent
+
+variables:
+  sensor: !input sensor
+  extra: !input context
+  cooldown: !input cooldown
+
+trigger_variables:
+  t_sensor: !input sensor
+  t_above: !input above
+  t_below: !input below
+
+trigger:
+  - platform: template
+    value_template: >-
+      {% set v = states(t_sensor) | float(none) %}
+      {{ v is not none
+         and (t_above is none or t_above == '' or v > t_above | float)
+         and (t_below is none or t_below == '' or v < t_below | float)
+         and not (t_above in [none, ''] and t_below in [none, '']) }}
+    for:
+      minutes: !input for_minutes
+
+condition:
+  - condition: template
+    value_template: >-
+      {{ this.attributes.last_triggered is none or
+         (now() - this.attributes.last_triggered).total_seconds() > cooldown * 60 }}
+
+action:
+  - action: grok_bot.ask
+    data:
+      message: !input message
+      context_entities: "{{ [sensor] + extra }}"
+      action_mode: !input action_mode
+      reply_to: !input reply_to

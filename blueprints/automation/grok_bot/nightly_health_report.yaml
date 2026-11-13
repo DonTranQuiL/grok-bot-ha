@@ -1,0 +1,51 @@
+blueprint:
+  name: Grok Bot - nightly health report
+  description: >-
+    Once a day, sends open repairs, failed integrations, unavailable entities and
+    recent errors to Grok Bot. One send per day.
+  domain: automation
+  source_url: https://github.com/DonTranQuiL/grok-bot-ha/blob/main/blueprints/automation/grok_bot/nightly_health_report.yaml
+  author: DonTranQuiL
+  input:
+    at:
+      name: Time
+      default: "03:30:00"
+      selector:
+        time:
+    action_mode:
+      name: Action mode
+      default: diagnose
+      selector:
+        select:
+          options:
+            - label: Report only
+              value: report
+            - label: Diagnose
+              value: diagnose
+            - label: Diagnose and fix
+              value: fix
+    notify_user:
+      name: Message me in the Grok Bot app
+      default: true
+      selector:
+        boolean:
+    reply_to:
+      name: Reply to (optional)
+      default: persistent_notification
+      selector:
+        text:
+
+mode: single
+
+variables:
+
+trigger:
+  - platform: time
+    at: !input at
+
+action:
+  - action: grok_bot.health_report
+    data:
+      action_mode: !input action_mode
+      notify_user: !input notify_user
+      reply_to: !input reply_to

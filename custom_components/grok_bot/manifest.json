@@ -1,0 +1,27 @@
+{
+  "domain": "grok_bot",
+  "name": "Grok Bot",
+  "after_dependencies": [
+    "frontend"
+  ],
+  "categories": [
+    "ai_voice.voice_assistants",
+    "messaging_notifications.chat_apps",
+    "computers_network.monitoring"
+  ],
+  "codeowners": [
+    "@DonTranQuiL"
+  ],
+  "config_flow": true,
+  "dependencies": [
+    "conversation",
+    "http",
+    "webhook"
+  ],
+  "documentation": "https://github.com/DonTranQuiL/grok-bot-ha",
+  "integration_type": "service",
+  "iot_class": "cloud_push",
+  "issue_tracker": "https://github.com/DonTranQuiL/grok-bot-ha/issues",
+  "requirements": [],
+  "version": "0.1.0"
+}

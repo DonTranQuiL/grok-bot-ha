@@ -1,0 +1,583 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect Grok Bot",
+        "description": "Create a webhook routine in the Grok Bot app, then paste its webhook URL and the full Authorization header value. Every message Home Assistant sends to this webhook costs Grok Bot usage.",
+        "data": {
+          "name": "Name",
+          "webhook_url": "Webhook URL",
+          "auth_header": "Authorization header value",
+          "send_test": "Send a test ping (counts as one Grok Bot run)"
+        },
+        "data_description": {
+          "webhook_url": "The https:// URL of the Grok Bot routine webhook.",
+          "auth_header": "Paste the value exactly as shown in the app (for example `Bearer …`). It is stored as a secret and never logged.",
+          "send_test": "Checks the URL and header by posting {\"type\": \"ping\"}."
+        }
+      },
+      "preset": {
+        "title": "What may Grok Bot receive?",
+        "description": "Pick a starting point. You can change it any time in the options; nothing is sent automatically unless you allow it.",
+        "data": {
+          "preset": "Preset"
+        },
+        "data_description": {
+          "preset": "Custom unlocks Advanced mode with every option."
+        }
+      },
+      "reauth_confirm": {
+        "title": "Grok Bot authorization failed",
+        "description": "The webhook rejected the Authorization header. Paste the current value from the Grok Bot app.",
+        "data": {
+          "auth_header": "Authorization header value",
+          "send_test": "Send a test ping (counts as one Grok Bot run)"
+        }
+      },
+      "reconfigure": {
+        "title": "Change the Grok Bot webhook",
+        "data": {
+          "webhook_url": "Webhook URL",
+          "auth_header": "Authorization header value",
+          "send_test": "Send a test ping (counts as one Grok Bot run)"
+        }
+      }
+    },
+    "error": {
+      "invalid_url": "Enter a full https:// webhook URL.",
+      "invalid_auth": "The webhook rejected the Authorization header.",
+      "cannot_connect": "Could not reach the webhook.",
+      "unknown": "Unexpected error."
+    },
+    "abort": {
+      "already_configured": "This webhook is already configured.",
+      "reauth_successful": "Re-authentication was successful.",
+      "reconfigure_successful": "Re-configuration was successful."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Grok Bot options",
+        "description": "Mode: {mode}. Preset: {preset}. Every send costs Grok Bot usage and counts toward your budget.",
+        "menu_options": {
+          "preset": "Preset (simple setup)",
+          "features": "Features (notify, Assist, inbound webhook)",
+          "budget": "Budget, rate limits and quiet hours",
+          "forwarding": "State and event forwarding",
+          "entity_filter": "Per-entity filters",
+          "watchers": "Problem watchers (errors, repairs, unavailable)",
+          "templates": "Message templates",
+          "advanced_mode": "Switch to Advanced mode",
+          "simple_mode": "Switch to Simple mode",
+          "finish": "Save and close"
+        }
+      },
+      "preset": {
+        "title": "Preset",
+        "description": "Ask only: only your own actions, buttons and the card send. Errors only: logged errors, failed automations and failed integrations are reported. Errors + repairs, diagnose: also repair issues, and Grok Bot investigates each one. Custom: Advanced mode.",
+        "data": {
+          "preset": "Preset"
+        }
+      },
+      "features": {
+        "title": "Features",
+        "description": "Inbound webhook path (only when enabled, POST JSON with `message`): {webhook_path}",
+        "data": {
+          "enable_notify": "Notify entity (notify.send_message to Grok Bot)",
+          "enable_conversation": "Assist conversation agent",
+          "enable_inbound_webhook": "Inbound reply webhook",
+          "include_attributes": "Attach entity attributes to context"
+        },
+        "data_description": {
+          "enable_conversation": "Assist answers right away that the message was sent; Grok Bot's real answer arrives later.",
+          "enable_inbound_webhook": "Lets Grok Bot post replies to a secret Home Assistant webhook as well as calling grok_bot.reply.",
+          "include_attributes": "Off sends only states, which keeps payloads small."
+        }
+      },
+      "budget": {
+        "title": "Budget",
+        "description": "Sends over the budget are dropped, not queued. Manual actions count too, unless they set bypass_budget.",
+        "data": {
+          "max_per_hour": "Max sends per hour",
+          "max_per_day": "Max sends per 24 hours",
+          "min_interval": "Minimum seconds between forwards of the same entity or event",
+          "quiet_hours": "Quiet hours (drop automatic sends)",
+          "quiet_start": "Quiet hours start",
+          "quiet_end": "Quiet hours end",
+          "max_payload_bytes": "Payload size limit"
+        }
+      },
+      "forwarding": {
+        "title": "State and event forwarding",
+        "description": "Only the entities and event types you pick here are forwarded. Leave empty to forward nothing.",
+        "data": {
+          "forward_entities": "Entities to forward",
+          "state_action": "Action mode for state changes",
+          "ignore_unavailable": "Ignore changes to unavailable/unknown",
+          "forward_events": "Event types to forward",
+          "event_action": "Action mode for events"
+        },
+        "data_description": {
+          "forward_events": "Type an event type and press Enter, e.g. `zha_event`. state_changed and grok_bot_* events are blocked."
+        }
+      },
+      "entity_filter": {
+        "title": "Per-entity filter",
+        "description": "Pick a forwarded entity to add or change its filter.",
+        "data": {
+          "filter_entity": "Entity"
+        }
+      },
+      "filter_details": {
+        "title": "Filter for {entity_id}",
+        "description": "Without a filter every state change is forwarded (after the minimum interval). Thresholds fire when the value crosses into the range.",
+        "data": {
+          "to_states": "Only when the new state is one of",
+          "attribute": "Use this attribute instead of the state",
+          "above": "Only when above",
+          "below": "Only when below",
+          "min_interval": "Minimum seconds between forwards",
+          "remove": "Remove this filter"
+        }
+      },
+      "watchers": {
+        "title": "Problem watchers",
+        "description": "Each watcher is off until you enable it. Choose per watcher whether Grok Bot only reports, diagnoses, or may try safe fixes.",
+        "sections": {
+          "logs": {
+            "name": "Logged errors and warnings",
+            "data": {
+              "watch_logs": "Forward log records",
+              "log_level": "Minimum level",
+              "log_logger_mode": "Logger filter",
+              "log_loggers": "Loggers / integrations",
+              "log_dedupe": "Group identical errors for (seconds)",
+              "log_action": "Action mode"
+            },
+            "data_description": {
+              "log_loggers": "Logger names such as `homeassistant.components.zha` or `custom_components.helios_tilt`."
+            }
+          },
+          "repairs": {
+            "name": "Repair issues",
+            "data": {
+              "watch_repairs": "Forward new repair issues",
+              "repairs_action": "Action mode"
+            }
+          },
+          "unavailable": {
+            "name": "Unavailable entities",
+            "data": {
+              "watch_unavailable": "Entities to watch",
+              "unavailable_minutes": "Unavailable or unknown for (minutes)",
+              "unavailable_action": "Action mode"
+            }
+          },
+          "automations": {
+            "name": "Failed automations and scripts",
+            "data": {
+              "watch_automations": "Forward automation and script errors",
+              "automations_action": "Action mode"
+            }
+          },
+          "setup": {
+            "name": "Integration setup failures",
+            "data": {
+              "watch_setup": "Forward integrations that fail to set up",
+              "setup_action": "Action mode"
+            }
+          }
+        }
+      },
+      "templates": {
+        "title": "Message templates",
+        "description": "Optional Jinja templates for the `message` field. Leave empty for the built-in text. Variables: state: `entity_id`, `from_state`, `to_state`; event: `event_type`, `event_data`; problems: `kind`, `issue`.",
+        "data": {
+          "template_state": "State change message",
+          "template_event": "Event message",
+          "template_issue": "Problem message"
+        }
+      }
+    },
+    "error": {
+      "hour_over_day": "The hourly limit can't be higher than the daily limit.",
+      "event_blocked": "One of these event types can't be forwarded."
+    },
+    "abort": {
+      "no_forward_entities": "Pick entities under State and event forwarding first."
+    }
+  },
+  "selector": {
+    "preset": {
+      "options": {
+        "ask_only": "Ask only (nothing automatic)",
+        "errors_only": "Errors only (report)",
+        "errors_repairs_diagnose": "Errors + repairs, diagnose",
+        "custom": "Custom (Advanced mode)"
+      }
+    },
+    "action_mode": {
+      "options": {
+        "report": "Report only",
+        "diagnose": "Diagnose (Grok Bot investigates and replies)",
+        "fix": "Diagnose and fix (safe, reversible fixes allowed)"
+      }
+    },
+    "log_level": {
+      "options": {
+        "WARNING": "Warning",
+        "ERROR": "Error",
+        "CRITICAL": "Critical"
+      }
+    },
+    "logger_mode": {
+      "options": {
+        "all": "All loggers",
+        "allow": "Only these loggers",
+        "deny": "All except these loggers"
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "last_reply": {
+        "name": "Last reply"
+      },
+      "last_status": {
+        "name": "Last status",
+        "state": {
+          "idle": "Idle",
+          "sent": "Sent",
+          "failed": "Failed",
+          "auth_failed": "Authorization failed",
+          "dropped_budget": "Dropped (budget)",
+          "dropped_paused": "Dropped (paused)",
+          "dropped_cooldown": "Dropped (cooldown)",
+          "dropped_quiet_hours": "Dropped (quiet hours)",
+          "dropped_too_large": "Dropped (too large)"
+        }
+      },
+      "last_sent": {
+        "name": "Last sent"
+      },
+      "sends_hour": {
+        "name": "Sends last hour"
+      },
+      "sends_day": {
+        "name": "Sends last 24 hours"
+      },
+      "sent_total": {
+        "name": "Sent total"
+      },
+      "failed_total": {
+        "name": "Failed total"
+      },
+      "dropped_total": {
+        "name": "Dropped total"
+      },
+      "pending": {
+        "name": "Awaiting reply"
+      }
+    },
+    "switch": {
+      "pause": {
+        "name": "Pause sending"
+      }
+    },
+    "button": {
+      "ping": {
+        "name": "Send test ping"
+      },
+      "health_report": {
+        "name": "Send health report"
+      },
+      "fix_repairs": {
+        "name": "Fix open repairs"
+      },
+      "reset_budget": {
+        "name": "Reset budget counters"
+      }
+    }
+  },
+  "exceptions": {
+    "entry_not_found": {
+      "message": "No loaded Grok Bot entry with id {entry_id}."
+    },
+    "not_loaded": {
+      "message": "Grok Bot is not set up or not loaded."
+    },
+    "multiple_entries": {
+      "message": "Several Grok Bot entries are loaded; set config_entry_id."
+    },
+    "issue_not_found": {
+      "message": "Repair issue {issue_id} was not found."
+    },
+    "nothing_to_diagnose": {
+      "message": "Give a message, an issue_id, a target_config_entry_id or context entities."
+    },
+    "send_failed": {
+      "message": "Could not deliver the message to Grok Bot."
+    }
+  },
+  "services": {
+    "ask": {
+      "name": "Ask Grok Bot",
+      "description": "Send a message or task to Grok Bot. Counts toward the budget.",
+      "fields": {
+        "message": {
+          "name": "Message",
+          "description": "The text for Grok Bot."
+        },
+        "action_mode": {
+          "name": "Action mode",
+          "description": "Report only, diagnose, or diagnose and fix."
+        },
+        "data": {
+          "name": "Extra data",
+          "description": "Any extra JSON data for Grok Bot."
+        },
+        "context_entities": {
+          "name": "Context entities",
+          "description": "Their current states are attached to the message."
+        },
+        "reply_to": {
+          "name": "Reply to",
+          "description": "Where Grok Bot's answer goes as well: an input_text, a notify entity, notify.<service>, or persistent_notification."
+        },
+        "conversation_id": {
+          "name": "Conversation ID",
+          "description": "Reuse to continue a conversation; a new one is generated when empty."
+        },
+        "notify_user": {
+          "name": "Notify me",
+          "description": "Ask Grok Bot to also message you in the Grok Bot app."
+        },
+        "bypass_budget": {
+          "name": "Bypass budget",
+          "description": "Send even when the hourly/daily budget is used up (still counted; the pause switch still applies)."
+        },
+        "config_entry_id": {
+          "name": "Grok Bot entry",
+          "description": "Only needed when you have more than one Grok Bot entry."
+        }
+      }
+    },
+    "send_event": {
+      "name": "Send event",
+      "description": "Send a custom event to Grok Bot. Counts toward the budget.",
+      "fields": {
+        "event_type": {
+          "name": "Event type",
+          "description": "Name of your event."
+        },
+        "message": {
+          "name": "Message",
+          "description": "The text for Grok Bot."
+        },
+        "data": {
+          "name": "Extra data",
+          "description": "Any extra JSON data for Grok Bot."
+        },
+        "action_mode": {
+          "name": "Action mode",
+          "description": "Report only, diagnose, or diagnose and fix."
+        },
+        "context_entities": {
+          "name": "Context entities",
+          "description": "Their current states are attached to the message."
+        },
+        "reply_to": {
+          "name": "Reply to",
+          "description": "Where Grok Bot's answer goes as well: an input_text, a notify entity, notify.<service>, or persistent_notification."
+        },
+        "conversation_id": {
+          "name": "Conversation ID",
+          "description": "Reuse to continue a conversation; a new one is generated when empty."
+        },
+        "notify_user": {
+          "name": "Notify me",
+          "description": "Ask Grok Bot to also message you in the Grok Bot app."
+        },
+        "bypass_budget": {
+          "name": "Bypass budget",
+          "description": "Send even when the hourly/daily budget is used up (still counted; the pause switch still applies)."
+        },
+        "config_entry_id": {
+          "name": "Grok Bot entry",
+          "description": "Only needed when you have more than one Grok Bot entry."
+        }
+      }
+    },
+    "diagnose": {
+      "name": "Diagnose",
+      "description": "Ask Grok Bot to investigate a problem and reply, without changing anything.",
+      "fields": {
+        "message": {
+          "name": "Message",
+          "description": "The text for Grok Bot."
+        },
+        "issue_id": {
+          "name": "Repair issue ID",
+          "description": "ID of a repair issue."
+        },
+        "issue_domain": {
+          "name": "Repair issue domain",
+          "description": "Integration that raised the issue (looked up when empty)."
+        },
+        "target_config_entry_id": {
+          "name": "Integration entry",
+          "description": "Config entry Grok Bot should look at."
+        },
+        "context_entities": {
+          "name": "Context entities",
+          "description": "Their current states are attached to the message."
+        },
+        "reply_to": {
+          "name": "Reply to",
+          "description": "Where Grok Bot's answer goes as well: an input_text, a notify entity, notify.<service>, or persistent_notification."
+        },
+        "conversation_id": {
+          "name": "Conversation ID",
+          "description": "Reuse to continue a conversation; a new one is generated when empty."
+        },
+        "notify_user": {
+          "name": "Notify me",
+          "description": "Ask Grok Bot to also message you in the Grok Bot app."
+        },
+        "bypass_budget": {
+          "name": "Bypass budget",
+          "description": "Send even when the hourly/daily budget is used up (still counted; the pause switch still applies)."
+        },
+        "config_entry_id": {
+          "name": "Grok Bot entry",
+          "description": "Only needed when you have more than one Grok Bot entry."
+        }
+      }
+    },
+    "fix_issue": {
+      "name": "Fix issue",
+      "description": "Ask Grok Bot to diagnose a problem and try a safe, reversible fix (allow_fix=true).",
+      "fields": {
+        "message": {
+          "name": "Message",
+          "description": "The text for Grok Bot."
+        },
+        "issue_id": {
+          "name": "Repair issue ID",
+          "description": "ID of a repair issue."
+        },
+        "issue_domain": {
+          "name": "Repair issue domain",
+          "description": "Integration that raised the issue (looked up when empty)."
+        },
+        "target_config_entry_id": {
+          "name": "Integration entry",
+          "description": "Config entry Grok Bot should look at."
+        },
+        "context_entities": {
+          "name": "Context entities",
+          "description": "Their current states are attached to the message."
+        },
+        "reply_to": {
+          "name": "Reply to",
+          "description": "Where Grok Bot's answer goes as well: an input_text, a notify entity, notify.<service>, or persistent_notification."
+        },
+        "conversation_id": {
+          "name": "Conversation ID",
+          "description": "Reuse to continue a conversation; a new one is generated when empty."
+        },
+        "notify_user": {
+          "name": "Notify me",
+          "description": "Ask Grok Bot to also message you in the Grok Bot app."
+        },
+        "bypass_budget": {
+          "name": "Bypass budget",
+          "description": "Send even when the hourly/daily budget is used up (still counted; the pause switch still applies)."
+        },
+        "config_entry_id": {
+          "name": "Grok Bot entry",
+          "description": "Only needed when you have more than one Grok Bot entry."
+        }
+      }
+    },
+    "health_report": {
+      "name": "Health report",
+      "description": "Send open repairs, failed integrations, unavailable entities and recent errors.",
+      "fields": {
+        "action_mode": {
+          "name": "Action mode",
+          "description": "Report only, diagnose, or diagnose and fix."
+        },
+        "context_entities": {
+          "name": "Context entities",
+          "description": "Their current states are attached to the message."
+        },
+        "reply_to": {
+          "name": "Reply to",
+          "description": "Where Grok Bot's answer goes as well: an input_text, a notify entity, notify.<service>, or persistent_notification."
+        },
+        "conversation_id": {
+          "name": "Conversation ID",
+          "description": "Reuse to continue a conversation; a new one is generated when empty."
+        },
+        "notify_user": {
+          "name": "Notify me",
+          "description": "Ask Grok Bot to also message you in the Grok Bot app."
+        },
+        "bypass_budget": {
+          "name": "Bypass budget",
+          "description": "Send even when the hourly/daily budget is used up (still counted; the pause switch still applies)."
+        },
+        "config_entry_id": {
+          "name": "Grok Bot entry",
+          "description": "Only needed when you have more than one Grok Bot entry."
+        }
+      }
+    },
+    "ping": {
+      "name": "Ping",
+      "description": "Send a test ping to the Grok Bot webhook.",
+      "fields": {
+        "bypass_budget": {
+          "name": "Bypass budget",
+          "description": "Send even when the hourly/daily budget is used up (still counted; the pause switch still applies)."
+        },
+        "config_entry_id": {
+          "name": "Grok Bot entry",
+          "description": "Only needed when you have more than one Grok Bot entry."
+        }
+      }
+    },
+    "reply": {
+      "name": "Reply",
+      "description": "Used by Grok Bot to answer: updates the Last reply sensor, fires grok_bot_reply and delivers to reply_to.",
+      "fields": {
+        "message": {
+          "name": "Message",
+          "description": "Grok Bot's answer."
+        },
+        "conversation_id": {
+          "name": "Conversation ID",
+          "description": "Reuse to continue a conversation; a new one is generated when empty."
+        },
+        "title": {
+          "name": "Title",
+          "description": "Optional title of the reply."
+        },
+        "reply_to": {
+          "name": "Reply to",
+          "description": "Where Grok Bot's answer goes as well: an input_text, a notify entity, notify.<service>, or persistent_notification."
+        },
+        "data": {
+          "name": "Extra data",
+          "description": "Any extra JSON data for Grok Bot."
+        },
+        "config_entry_id": {
+          "name": "Grok Bot entry",
+          "description": "Only needed when you have more than one Grok Bot entry."
+        }
+      }
+    }
+  }
+}

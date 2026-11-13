@@ -1,0 +1,239 @@
+ask:
+  fields:
+    message:
+      required: true
+      example: "The solar tilt looks stuck, check it."
+      selector:
+        text:
+          multiline: true
+    action_mode:
+      default: report
+      selector:
+        select:
+          translation_key: action_mode
+          options:
+            - report
+            - diagnose
+            - fix
+    data:
+      selector:
+        object:
+    context_entities:
+      selector:
+        entity:
+          multiple: true
+    reply_to:
+      example: input_text.grok_bot_answer
+      selector:
+        text:
+    conversation_id:
+      selector:
+        text:
+    notify_user:
+      default: false
+      selector:
+        boolean:
+    bypass_budget:
+      default: false
+      selector:
+        boolean:
+    config_entry_id:
+      selector:
+        config_entry:
+          integration: grok_bot
+send_event:
+  fields:
+    event_type:
+      required: true
+      example: doorbell_pressed
+      selector:
+        text:
+    message:
+      required: false
+      example: "The solar tilt looks stuck, check it."
+      selector:
+        text:
+          multiline: true
+    data:
+      selector:
+        object:
+    action_mode:
+      default: report
+      selector:
+        select:
+          translation_key: action_mode
+          options:
+            - report
+            - diagnose
+            - fix
+    context_entities:
+      selector:
+        entity:
+          multiple: true
+    reply_to:
+      example: input_text.grok_bot_answer
+      selector:
+        text:
+    conversation_id:
+      selector:
+        text:
+    notify_user:
+      default: false
+      selector:
+        boolean:
+    bypass_budget:
+      default: false
+      selector:
+        boolean:
+    config_entry_id:
+      selector:
+        config_entry:
+          integration: grok_bot
+diagnose:
+  fields:
+    message:
+      required: false
+      example: "The solar tilt looks stuck, check it."
+      selector:
+        text:
+          multiline: true
+    issue_id:
+      selector:
+        text:
+    issue_domain:
+      selector:
+        text:
+    target_config_entry_id:
+      selector:
+        config_entry:
+    context_entities:
+      selector:
+        entity:
+          multiple: true
+    reply_to:
+      example: input_text.grok_bot_answer
+      selector:
+        text:
+    conversation_id:
+      selector:
+        text:
+    notify_user:
+      default: false
+      selector:
+        boolean:
+    bypass_budget:
+      default: false
+      selector:
+        boolean:
+    config_entry_id:
+      selector:
+        config_entry:
+          integration: grok_bot
+fix_issue:
+  fields:
+    message:
+      required: false
+      example: "The solar tilt looks stuck, check it."
+      selector:
+        text:
+          multiline: true
+    issue_id:
+      selector:
+        text:
+    issue_domain:
+      selector:
+        text:
+    target_config_entry_id:
+      selector:
+        config_entry:
+    context_entities:
+      selector:
+        entity:
+          multiple: true
+    reply_to:
+      example: input_text.grok_bot_answer
+      selector:
+        text:
+    conversation_id:
+      selector:
+        text:
+    notify_user:
+      default: false
+      selector:
+        boolean:
+    bypass_budget:
+      default: false
+      selector:
+        boolean:
+    config_entry_id:
+      selector:
+        config_entry:
+          integration: grok_bot
+health_report:
+  fields:
+    action_mode:
+      default: diagnose
+      selector:
+        select:
+          translation_key: action_mode
+          options:
+            - report
+            - diagnose
+            - fix
+    context_entities:
+      selector:
+        entity:
+          multiple: true
+    reply_to:
+      example: input_text.grok_bot_answer
+      selector:
+        text:
+    conversation_id:
+      selector:
+        text:
+    notify_user:
+      default: false
+      selector:
+        boolean:
+    bypass_budget:
+      default: false
+      selector:
+        boolean:
+    config_entry_id:
+      selector:
+        config_entry:
+          integration: grok_bot
+ping:
+  fields:
+    bypass_budget:
+      default: false
+      selector:
+        boolean:
+    config_entry_id:
+      selector:
+        config_entry:
+          integration: grok_bot
+reply:
+  fields:
+    message:
+      required: true
+      example: "The solar tilt looks stuck, check it."
+      selector:
+        text:
+          multiline: true
+    conversation_id:
+      selector:
+        text:
+    title:
+      selector:
+        text:
+    reply_to:
+      selector:
+        text:
+    data:
+      selector:
+        object:
+    config_entry_id:
+      selector:
+        config_entry:
+          integration: grok_bot

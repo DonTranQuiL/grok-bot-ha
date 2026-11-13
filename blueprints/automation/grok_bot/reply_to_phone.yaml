@@ -1,0 +1,28 @@
+blueprint:
+  name: Grok Bot - push replies to my phone
+  description: >-
+    Sends every Grok Bot reply (event grok_bot_reply) to a Home Assistant
+    companion app. Costs no Grok Bot usage.
+  domain: automation
+  source_url: https://github.com/DonTranQuiL/grok-bot-ha/blob/main/blueprints/automation/grok_bot/reply_to_phone.yaml
+  author: DonTranQuiL
+  input:
+    phone:
+      name: Phone
+      selector:
+        device:
+          integration: mobile_app
+
+mode: queued
+max: 10
+
+trigger:
+  - platform: event
+    event_type: grok_bot_reply
+
+action:
+  - domain: mobile_app
+    type: notify
+    device_id: !input phone
+    title: "{{ trigger.event.data.title or 'Grok Bot' }}"
+    message: "{{ trigger.event.data.message[:1000] }}"
