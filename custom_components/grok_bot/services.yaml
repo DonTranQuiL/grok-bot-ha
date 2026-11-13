@@ -268,6 +268,48 @@ restore_backup:
         config_entry:
           integration: grok_bot
 
+edit_yaml:
+  fields:
+    path:
+      required: true
+      example: configuration.yaml
+      selector:
+        text:
+    operation:
+      required: true
+      selector:
+        select:
+          options:
+            - remove_key
+            - set_key
+            - replace_text
+    key:
+      example: http
+      selector:
+        text:
+    value:
+      selector:
+        object:
+    find:
+      selector:
+        text:
+          multiline: true
+    replace:
+      selector:
+        text:
+          multiline: true
+    count:
+      default: 0
+      selector:
+        number:
+          min: 0
+          max: 100
+          mode: box
+    config_entry_id:
+      selector:
+        config_entry:
+          integration: grok_bot
+
 safe_restart:
   fields:
     config_entry_id:

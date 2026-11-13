@@ -248,8 +248,7 @@
           "trusted_confirm": "Ik begrijp dat Grok Bot configuratiebestanden kan bewerken en Home Assistant kan herstarten",
           "allow_yaml_edit": "Vertrouwd: YAML bewerken toestaan",
           "allow_restart": "Vertrouwd: herstarten toestaan",
-          "trusted_window": "Vertrouwd venster (automatisch uit)",
-          "trusted_window_minutes": "Duur vertrouwd venster"
+          "trusted_duration": "Vertrouwd venster"
         },
         "data_description": {
           "access_method": "HA-MCP (of core MCP Server) is standaard: Grok Bot gebruikt je MCP-connector en roept grok_bot.reply aan. De toegangs-webhook is voor systemen zonder MCP-connector.",
@@ -257,7 +256,7 @@
           "reply_timeout": "Na zoveel minuten telt een wachtend verzoek als beantwoord in de Grok Bot-app (0 = nooit).",
           "trusted": "🚩 RISICOVOL. Standaard uit. Grok Bot mag dan configuration.yaml, automations.yaml, scripts.yaml, scenes.yaml en bestanden onder packages/ bewerken (nooit secrets.yaml, .storage of custom_components) en Home Assistant herstarten, alleen bij fix-verzoeken en alleen zolang de schakelaar Vertrouwde toegang aan staat. Een foute wijziging kan voorkomen dat Home Assistant opstart. Voor elke wijziging wordt een back-up gemaakt (/config/.grok_bot_backups) en herstarten gebeurt alleen na een geslaagde configuratiecontrole.",
           "trusted_confirm": "Verplicht om Vertrouwde toegang aan te zetten.",
-          "trusted_window": "Aan (aanbevolen): de schakelaar Vertrouwde toegang gaat na het venster vanzelf uit. Uit: hij blijft aan tot je hem uitzet."
+          "trusted_duration": "Hoe lang de schakelaar Vertrouwde toegang aan blijft voordat hij vanzelf uitgaat (standaard 30 minuten). 🚩🚩 Altijd aan: Grok Bot mag bij elk fix-verzoek, op elk moment, configuratiebestanden bewerken en Home Assistant herstarten, tot je hem zelf uitzet. Kies dit alleen op een systeem dat je kunt herstellen."
         }
       },
       "install_mcp": {
@@ -278,8 +277,7 @@
           "trusted_confirm": "Ik begrijp dat Grok Bot configuratiebestanden kan bewerken en Home Assistant kan herstarten",
           "allow_yaml_edit": "Vertrouwd: YAML bewerken toestaan",
           "allow_restart": "Vertrouwd: herstarten toestaan",
-          "trusted_window": "Vertrouwd venster (automatisch uit)",
-          "trusted_window_minutes": "Duur vertrouwd venster"
+          "trusted_duration": "Vertrouwd venster"
         },
         "data_description": {
           "access_method": "HA-MCP (of core MCP Server) is standaard: Grok Bot gebruikt je MCP-connector en roept grok_bot.reply aan. De toegangs-webhook is voor systemen zonder MCP-connector.",
@@ -287,7 +285,7 @@
           "reply_timeout": "Na zoveel minuten telt een wachtend verzoek als beantwoord in de Grok Bot-app (0 = nooit).",
           "trusted": "🚩 RISICOVOL. Standaard uit. Grok Bot mag dan configuration.yaml, automations.yaml, scripts.yaml, scenes.yaml en bestanden onder packages/ bewerken (nooit secrets.yaml, .storage of custom_components) en Home Assistant herstarten, alleen bij fix-verzoeken en alleen zolang de schakelaar Vertrouwde toegang aan staat. Een foute wijziging kan voorkomen dat Home Assistant opstart. Voor elke wijziging wordt een back-up gemaakt (/config/.grok_bot_backups) en herstarten gebeurt alleen na een geslaagde configuratiecontrole.",
           "trusted_confirm": "Verplicht om Vertrouwde toegang aan te zetten.",
-          "trusted_window": "Aan (aanbevolen): de schakelaar Vertrouwde toegang gaat na het venster vanzelf uit. Uit: hij blijft aan tot je hem uitzet."
+          "trusted_duration": "Hoe lang de schakelaar Vertrouwde toegang aan blijft voordat hij vanzelf uitgaat (standaard 30 minuten). 🚩🚩 Altijd aan: Grok Bot mag bij elk fix-verzoek, op elk moment, configuratiebestanden bewerken en Home Assistant herstarten, tot je hem zelf uitzet. Kies dit alleen op een systeem dat je kunt herstellen."
         }
       },
       "connect": {
@@ -361,6 +359,14 @@
         "reload_entry": "Integratie herladen",
         "ignore_repair": "Reparatie negeren",
         "enable_entity": "Entiteit inschakelen"
+      }
+    },
+    "trusted_duration": {
+      "options": {
+        "30m": "30 minuten",
+        "2h": "2 uur",
+        "24h": "24 uur",
+        "always": "Altijd aan (tot ik hem uitzet) 🚩"
       }
     }
   },
@@ -489,6 +495,18 @@
     },
     "backup_not_found": {
       "message": "Back-up niet gevonden: {value}"
+    },
+    "invalid_operation": {
+      "message": "Onbekende bewerking: {value}"
+    },
+    "invalid_key": {
+      "message": "Alleen sleutels op het hoogste niveau (letters, cijfers, underscore); gebruik replace_text voor geneste wijzigingen: {value}"
+    },
+    "invalid_find": {
+      "message": "replace_text heeft de te zoeken tekst nodig."
+    },
+    "text_not_found": {
+      "message": "Tekst niet gevonden in het bestand: {value}"
     }
   },
   "services": {
@@ -797,6 +815,44 @@
           "description": "Alleen nodig bij meer dan een Grok Bot-entry."
         }
       }
+    },
+    "edit_yaml": {
+      "name": "YAML-bestand veilig bewerken",
+      "description": "Alleen met vertrouwde toegang en YAML bewerken. Maakt een back-up, voert remove_key, set_key (sleutels op het hoogste niveau zoals http of homeassistant) of replace_text uit, controleert de YAML, voert een configuratiecontrole uit en zet de back-up automatisch terug als die mislukt.",
+      "fields": {
+        "path": {
+          "name": "Pad",
+          "description": "Bestand relatief aan /config, bijvoorbeeld configuration.yaml of packages/heating.yaml."
+        },
+        "operation": {
+          "name": "Bewerking",
+          "description": "remove_key, set_key of replace_text."
+        },
+        "key": {
+          "name": "Sleutel",
+          "description": "Sleutel op het hoogste niveau voor remove_key / set_key, bijvoorbeeld http."
+        },
+        "value": {
+          "name": "Waarde",
+          "description": "Nieuwe waarde voor set_key (willekeurige YAML)."
+        },
+        "find": {
+          "name": "Zoeken",
+          "description": "Exacte tekst om te vervangen (replace_text)."
+        },
+        "replace": {
+          "name": "Vervangen door",
+          "description": "Vervangende tekst (replace_text)."
+        },
+        "count": {
+          "name": "Aantal",
+          "description": "Maximaal aantal vervangingen, 0 = alle."
+        },
+        "config_entry_id": {
+          "name": "Configuratie-entry",
+          "description": "Alleen nodig bij meer dan een Grok Bot-entry."
+        }
+      }
     }
   },
   "issues": {
@@ -807,6 +863,10 @@
     "not_connected": {
       "title": "Grok Bot nog niet gekoppeld",
       "description": "HA-MCP is geinstalleerd, maar \"{name}\" heeft nog geen antwoord van Grok Bot ontvangen. Druk op de knop \"Grok Bot-setupprompt tonen\" (of open opties → Koppel in Grok Bot), stuur de prompt naar je Grok Bot en wacht op \"Connected\". Deze reparatie verdwijnt bij het eerste grok_bot.reply."
+    },
+    "trusted_always_on": {
+      "title": "Vertrouwde toegang van Grok Bot staat altijd aan",
+      "description": "Vertrouwde toegang voor \"{name}\" staat op Altijd aan: Grok Bot mag bij elk fix-verzoek configuratiebestanden bewerken en Home Assistant herstarten. Zet Vertrouwde toegang uit of kies een tijdvenster via Configureren → Toegang als je het niet meer nodig hebt."
     }
   }
 }

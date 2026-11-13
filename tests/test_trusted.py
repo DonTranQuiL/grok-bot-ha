@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import time
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, PropertyMock, patch
 
 from homeassistant.components import persistent_notification
 from homeassistant.core import Context
@@ -20,8 +20,7 @@ TRUSTED = {
     "trusted_confirm": True,
     "allow_yaml_edit": True,
     "allow_restart": True,
-    "trusted_window": True,
-    "trusted_window_minutes": 30,
+    "trusted_duration": "30m",
 }
 SWITCH = "switch.grok_bot_trusted_access"
 
@@ -135,7 +134,7 @@ async def test_window_auto_reverts(hass, webhook_mock):
 
 
 async def test_no_window_stays_on_and_persists(hass, webhook_mock):
-    entry = await setup_entry(hass, **{**TRUSTED, "trusted_window": False})
+    entry = await setup_entry(hass, **{**TRUSTED, "trusted_duration": "always"})
     hub = entry.runtime_data.hub
     await _on(hass)
     assert hub.trusted.until == "forever"
@@ -234,3 +233,217 @@ async def test_setup_prompt_mentions_trusted_and_sign_in(hass, webhook_mock):
     assert "grok_bot.prepare_change" in prompt and "grok_bot.safe_restart" in prompt
     assert "sign-in" in prompt and "password never reaches you" in prompt
     assert "Profile > Security" in prompt
+
+
+# ------------------------------------------------------------ durations
+@pytest.mark.parametrize(("duration", "minutes"), [("30m", 30), ("2h", 120), ("24h", 1440)])
+async def test_duration_choices(hass, webhook_mock, duration, minutes):
+    entry = await setup_entry(hass, **{**TRUSTED, "trusted_duration": duration})
+    hub = entry.runtime_data.hub
+    await _on(hass)
+    assert abs(float(hub.trusted.until) - (time.time() + minutes * 60)) < 5
+
+
+async def test_always_on_raises_repair_issue(hass, webhook_mock):
+    from homeassistant.helpers import issue_registry as ir
+
+    entry = await setup_entry(hass, **{**TRUSTED, "trusted_duration": "always"})
+    hub = entry.runtime_data.hub
+    issue_id = f"trusted_always_on_{entry.entry_id}"
+    reg = ir.async_get(hass)
+    assert reg.async_get_issue(DOMAIN, issue_id) is None
+    await _on(hass)
+    assert reg.async_get_issue(DOMAIN, issue_id) is not None
+    # switching the duration away from "always" closes the open-ended window
+    with patch.object(
+        type(hub),
+        "options",
+        new_callable=PropertyMock,
+        return_value={**hub.options, "trusted_duration": "30m"},
+    ):
+        assert not hub.trusted.active
+        hub.trusted.async_tick()
+        await hass.async_block_till_done()
+    assert hub.trusted.until is None
+    assert reg.async_get_issue(DOMAIN, issue_id) is None
+
+
+# ------------------------------------------------------------ edit_yaml
+DUP = """# my config
+homeassistant:
+  name: Test
+
+http:
+  server_port: 8123
+
+# keep me
+http:
+  use_x_forwarded_for: true
+  trusted_proxies:
+    - 10.0.0.1
+
+frontend:
+  themes: !include_dir_merge_named themes
+"""
+
+
+async def test_edit_yaml_remove_duplicate_blocks(hass, webhook_mock, config_dir):
+    entry = await setup_entry(hass, **TRUSTED)
+    await _on(hass)
+    (config_dir / "configuration.yaml").write_text(DUP)
+    with patch("custom_components.grok_bot.trusted.async_check_config", AsyncMock(return_value=[])):
+        res = await _svc(
+            hass,
+            "edit_yaml",
+            {"path": "configuration.yaml", "operation": "remove_key", "key": "http"},
+        )
+    assert res["ok"] and res["changed"] and res["restart_required"]
+    text = (config_dir / "configuration.yaml").read_text()
+    assert "http:" not in text and "server_port" not in text
+    assert "# my config" in text and "# keep me" in text
+    assert "!include_dir_merge_named themes" in text and "name: Test" in text
+    backup = res["backup_path"]
+    assert (config_dir / backup).read_text() == DUP
+    audit = entry.runtime_data.hub.access.audit
+    assert any(a["type"] == "trusted_edit_yaml" and a["ok"] for a in audit)
+    assert any("_edit_yaml" in n for n in _notes(hass))
+
+
+async def test_edit_yaml_set_key_replaces_all_blocks(hass, webhook_mock, config_dir):
+    await setup_entry(hass, **TRUSTED)
+    await _on(hass)
+    (config_dir / "configuration.yaml").write_text(DUP)
+    with patch("custom_components.grok_bot.trusted.async_check_config", AsyncMock(return_value=[])):
+        res = await _svc(
+            hass,
+            "edit_yaml",
+            {
+                "path": "configuration.yaml",
+                "operation": "set_key",
+                "key": "http",
+                "value": {"use_x_forwarded_for": True, "trusted_proxies": ["10.0.0.1"]},
+            },
+        )
+    assert res["ok"]
+    text = (config_dir / "configuration.yaml").read_text()
+    assert text.count("http:") == 1 and "server_port" not in text
+    assert text.index("homeassistant:") < text.index("http:") < text.index("frontend:")
+    # set a brand-new key appends it
+    with patch("custom_components.grok_bot.trusted.async_check_config", AsyncMock(return_value=[])):
+        await _svc(
+            hass,
+            "edit_yaml",
+            {
+                "path": "configuration.yaml",
+                "operation": "set_key",
+                "key": "logger",
+                "value": {"default": "info"},
+            },
+        )
+    assert (config_dir / "configuration.yaml").read_text().endswith("logger:\n  default: info\n")
+
+
+async def test_edit_yaml_replace_text(hass, webhook_mock, config_dir):
+    await setup_entry(hass, **TRUSTED)
+    await _on(hass)
+    with patch("custom_components.grok_bot.trusted.async_check_config", AsyncMock(return_value=[])):
+        res = await _svc(
+            hass,
+            "edit_yaml",
+            {
+                "path": "packages/heat.yaml",
+                "operation": "replace_text",
+                "find": "{}",
+                "replace": "\n  heat:\n    name: Heat",
+            },
+        )
+        assert res["ok"]
+        with pytest.raises(ServiceValidationError):
+            await _svc(
+                hass,
+                "edit_yaml",
+                {"path": "packages/heat.yaml", "operation": "replace_text", "find": "nope"},
+            )
+    assert "name: Heat" in (config_dir / "packages" / "heat.yaml").read_text()
+
+
+async def test_edit_yaml_invalid_yaml_rejected(hass, webhook_mock, config_dir):
+    await setup_entry(hass, **TRUSTED)
+    await _on(hass)
+    before = (config_dir / "configuration.yaml").read_text()
+    check = AsyncMock(return_value=[])
+    with patch("custom_components.grok_bot.trusted.async_check_config", check):
+        res = await _svc(
+            hass,
+            "edit_yaml",
+            {
+                "path": "configuration.yaml",
+                "operation": "replace_text",
+                "find": "name: Test",
+                "replace": "name: [oops",
+            },
+        )
+    assert res["ok"] is False and res["errors"][0].startswith("Invalid YAML")
+    assert (config_dir / "configuration.yaml").read_text() == before
+    check.assert_not_called()
+
+
+async def test_edit_yaml_check_failure_restores(hass, webhook_mock, config_dir):
+    entry = await setup_entry(hass, **TRUSTED)
+    await _on(hass)
+    before = (config_dir / "configuration.yaml").read_text()
+    with patch(
+        "custom_components.grok_bot.trusted.async_check_config",
+        AsyncMock(return_value=["Invalid config for homeassistant"]),
+    ):
+        res = await _svc(
+            hass,
+            "edit_yaml",
+            {
+                "path": "configuration.yaml",
+                "operation": "set_key",
+                "key": "homeassistant",
+                "value": {"bogus": 1},
+            },
+        )
+    assert res == {
+        "ok": False,
+        "changed": False,
+        "path": "configuration.yaml",
+        "backup_path": res["backup_path"],
+        "errors": ["Invalid config for homeassistant"],
+        "restored": True,
+    }
+    assert (config_dir / "configuration.yaml").read_text() == before
+    types = [a["type"] for a in entry.runtime_data.hub.access.audit]
+    assert "trusted_restore_backup" in types and "trusted_edit_yaml" in types
+
+
+@pytest.mark.parametrize(
+    "data",
+    [
+        {"path": "secrets.yaml", "operation": "remove_key", "key": "x"},
+        {"path": ".storage/core.config", "operation": "replace_text", "find": "{}"},
+        {"path": "custom_components/a.yaml", "operation": "remove_key", "key": "a"},
+        {"path": "../etc/passwd", "operation": "remove_key", "key": "a"},
+        {"path": "configuration.yaml", "operation": "remove_key", "key": "http.server_port"},
+        {"path": "configuration.yaml", "operation": "replace_text"},
+    ],
+)
+async def test_edit_yaml_denied(hass, webhook_mock, config_dir, data):
+    await setup_entry(hass, **TRUSTED)
+    await _on(hass)
+    with pytest.raises(ServiceValidationError):
+        await _svc(hass, "edit_yaml", data)
+    assert (config_dir / "secrets.yaml").read_text() == "x: y\n"
+
+
+async def test_edit_yaml_needs_trusted(hass, webhook_mock, config_dir):
+    await setup_entry(hass, **{**TRUSTED, "allow_yaml_edit": False})
+    await _on(hass)
+    with pytest.raises(ServiceValidationError):
+        await _svc(
+            hass,
+            "edit_yaml",
+            {"path": "configuration.yaml", "operation": "remove_key", "key": "http"},
+        )

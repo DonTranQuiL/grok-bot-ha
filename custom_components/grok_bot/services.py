@@ -40,6 +40,7 @@ from .const import (
     DOMAIN,
     SERVICE_ASK,
     SERVICE_DIAGNOSE,
+    SERVICE_EDIT_YAML,
     SERVICE_FIX_ISSUE,
     SERVICE_HEALTH_REPORT,
     SERVICE_PING,
@@ -49,6 +50,7 @@ from .const import (
     SERVICE_ROTATE_TOKEN,
     SERVICE_SAFE_RESTART,
     SERVICE_SEND_EVENT,
+    YAML_OPERATIONS,
 )
 
 if TYPE_CHECKING:
@@ -313,6 +315,18 @@ def async_setup_services(hass: HomeAssistant) -> None:
     async def restore_backup(call: ServiceCall) -> ServiceResponse:
         return await _hub(hass, call).trusted.async_restore_backup(call.data["backup_path"])
 
+    async def edit_yaml(call: ServiceCall) -> ServiceResponse:
+        d = call.data
+        return await _hub(hass, call).trusted.async_edit_yaml(
+            d["path"],
+            d["operation"],
+            key=d.get("key"),
+            value=d.get("value"),
+            find=d.get("find"),
+            replace=d.get("replace") or "",
+            count=d.get("count", 0),
+        )
+
     async def safe_restart(call: ServiceCall) -> ServiceResponse:
         return await _hub(hass, call).trusted.async_safe_restart()
 
@@ -328,6 +342,22 @@ def async_setup_services(hass: HomeAssistant) -> None:
             SERVICE_RESTORE_BACKUP,
             restore_backup,
             vol.Schema({**entry_field, vol.Required("backup_path"): cv.string}),
+        ),
+        (
+            SERVICE_EDIT_YAML,
+            edit_yaml,
+            vol.Schema(
+                {
+                    **entry_field,
+                    vol.Required("path"): cv.string,
+                    vol.Required("operation"): vol.In(YAML_OPERATIONS),
+                    vol.Optional("key"): cv.string,
+                    vol.Optional("value"): object,
+                    vol.Optional("find"): cv.string,
+                    vol.Optional("replace", default=""): vol.Any(None, str),
+                    vol.Optional("count", default=0): vol.All(int, vol.Range(min=0)),
+                }
+            ),
         ),
         (SERVICE_SAFE_RESTART, safe_restart, vol.Schema(entry_field)),
     ):

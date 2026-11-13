@@ -386,9 +386,14 @@ CONF_TRUSTED: Final = "trusted"
 CONF_TRUSTED_CONFIRM: Final = "trusted_confirm"
 CONF_ALLOW_YAML_EDIT: Final = "allow_yaml_edit"
 CONF_ALLOW_RESTART: Final = "allow_restart"
-CONF_TRUSTED_WINDOW: Final = "trusted_window"
-CONF_TRUSTED_WINDOW_MINUTES: Final = "trusted_window_minutes"
-DEFAULT_TRUSTED_WINDOW_MINUTES: Final = 30
+CONF_TRUSTED_DURATION: Final = "trusted_duration"
+TRUSTED_ALWAYS: Final = "always"
+# Trusted window: how long the Trusted access switch stays on before auto-reverting.
+TRUSTED_DURATIONS: Final = {"30m": 30, "2h": 120, "24h": 1440, TRUSTED_ALWAYS: None}
+DEFAULT_TRUSTED_DURATION: Final = "30m"
+ISSUE_TRUSTED_ALWAYS: Final = "trusted_always_on"
+SERVICE_EDIT_YAML: Final = "edit_yaml"
+YAML_OPERATIONS: Final = ["remove_key", "set_key", "replace_text"]
 BACKUP_DIR: Final = ".grok_bot_backups"
 BACKUPS_LEN: Final = 50
 SERVICE_PREPARE_CHANGE: Final = "prepare_change"
@@ -406,7 +411,6 @@ DEFAULT_OPTIONS.update(
         CONF_TRUSTED_CONFIRM: False,
         CONF_ALLOW_YAML_EDIT: True,
         CONF_ALLOW_RESTART: True,
-        CONF_TRUSTED_WINDOW: True,
-        CONF_TRUSTED_WINDOW_MINUTES: DEFAULT_TRUSTED_WINDOW_MINUTES,
+        CONF_TRUSTED_DURATION: DEFAULT_TRUSTED_DURATION,
     }
 )

@@ -82,8 +82,7 @@ from .const import (
     CONF_TEMPLATE_STATE,
     CONF_TRUSTED,
     CONF_TRUSTED_CONFIRM,
-    CONF_TRUSTED_WINDOW,
-    CONF_TRUSTED_WINDOW_MINUTES,
+    CONF_TRUSTED_DURATION,
     CONF_UNAVAILABLE_ACTION,
     CONF_UNAVAILABLE_MINUTES,
     CONF_WATCH_AUTOMATIONS,
@@ -113,6 +112,7 @@ from .const import (
     PRESET_CUSTOM,
     PRESET_OPTIONS,
     PRESETS,
+    TRUSTED_DURATIONS,
 )
 from .mcp import detect_mcp, ha_mcp_installed, setup_links
 from .prompt import setup_prompt
@@ -601,10 +601,9 @@ class GrokBotOptionsFlow(OptionsFlow):
                     vol.Required(CONF_TRUSTED_CONFIRM, default=o[CONF_TRUSTED_CONFIRM]): bool,
                     vol.Required(CONF_ALLOW_YAML_EDIT, default=o[CONF_ALLOW_YAML_EDIT]): bool,
                     vol.Required(CONF_ALLOW_RESTART, default=o[CONF_ALLOW_RESTART]): bool,
-                    vol.Required(CONF_TRUSTED_WINDOW, default=o[CONF_TRUSTED_WINDOW]): bool,
-                    vol.Required(
-                        CONF_TRUSTED_WINDOW_MINUTES, default=o[CONF_TRUSTED_WINDOW_MINUTES]
-                    ): _num(5, 1440, unit="min"),
+                    vol.Required(CONF_TRUSTED_DURATION, default=o[CONF_TRUSTED_DURATION]): _select(
+                        list(TRUSTED_DURATIONS), "trusted_duration"
+                    ),
                 }
             )
         data = getattr(self.config_entry, "runtime_data", None)

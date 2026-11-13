@@ -136,6 +136,9 @@
     },
     "safe_restart": {
       "service": "mdi:restart-alert"
+    },
+    "edit_yaml": {
+      "service": "mdi:file-document-edit"
     }
   }
 }

@@ -170,6 +170,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: GrokBotConfigEntry) -> 
     data.hub.access.async_stop()
     ir.async_delete_issue(hass, DOMAIN, f"{ISSUE_MCP_MISSING}_{entry.entry_id}")
     ir.async_delete_issue(hass, DOMAIN, f"{ISSUE_NOT_CONNECTED}_{entry.entry_id}")
+    ir.async_delete_issue(hass, DOMAIN, f"trusted_always_on_{entry.entry_id}")
     unloaded = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     await data.hub.async_shutdown()
     return unloaded

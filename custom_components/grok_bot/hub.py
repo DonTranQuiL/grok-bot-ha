@@ -196,6 +196,7 @@ class GrokBotHub:
         self.connected = bool(data.get("connected", False))
         self.access.load(data)
         self.trusted.load(data)
+        self.trusted.update_issue()
         self._unsubs.append(
             async_track_time_interval(self.hass, self._async_tick, timedelta(minutes=1))
         )
