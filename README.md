@@ -1,6 +1,5 @@
 # Grok Bot for Home Assistant
 
-![Grok Bot fixing an open repair from the card: backup, YAML edit, config check, restart and the reply](docs/images/demo.gif)
 
 [![Marketplace](https://img.shields.io/badge/Marketplace-HA%202026.11+-41BDF5.svg)](https://my.home-assistant.io/redirect/marketplace_repository/?owner=DonTranQuiL&repository=grok-bot-ha&category=integration)
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://hacs.xyz/)
@@ -68,7 +67,6 @@ Let Home Assistant talk to your **Grok Bot** assistant. Home Assistant sends tas
    * **Prefer core?** [Set up MCP Server](https://my.home-assistant.io/redirect/config_flow_start/?domain=mcp_server) and add `https://<your-external-or-nabu-casa-url>/api/mcp` as a connector (OAuth or a long-lived token). The LLM API you choose there (Assist = only exposed entities) decides what Grok Bot can touch.
    * The URL must be reachable from the internet (Nabu Casa or your own external URL).
 
-   ![Access page: HA-MCP detected and recommended, core MCP Server as fallback](docs/images/access-mcp.png)
 4. **Pick a preset:**
    | Preset | What gets sent automatically |
    | --- | --- |
@@ -153,7 +151,6 @@ Awaiting conversations are stored, so they survive a restart (the reply timeout 
 
 ### Options (Settings > Devices & services > Grok Bot > Configure)
 
-![The options menu: every page saves on Submit](docs/images/options-menu.png)
 
 | Menu | Options |
 | --- | --- |
@@ -210,7 +207,6 @@ The delivery status looks like this: `{"status": "sent" | "failed" | "auth_faile
 
 ### Entities
 
-![The Grok Bot device page with its controls, sensors and activity](docs/images/device-page.png)
 
 `sensor.grok_bot_last_reply` (with `history`), `last_status`, `last_sent`, `sends_last_hour` and `sends_last_24_hours` (with `limit`/`remaining`), `last_grok_bot_action` (access webhook audit), plus the diagnostic sensors `sent_total`, `failed_total`, `dropped_total`, `awaiting_reply`, `access_method` (`ha_mcp`, `mcp_server`, `webhook` or `none`, with the connector URL hint) and `access_webhook_url`. There is also `switch.grok_bot_pause_sending`, the buttons *Send test ping*, *Send health report*, *Fix open repairs*, *Reset budget counters*, *Mark replies handled*, *Clear conversation history* (wipes the card's conversation, kept across restarts otherwise), *Show Grok Bot setup prompt* and *Rotate access token*, `switch.grok_bot_trusted_access` (only when Trusted access is enabled), and, when enabled, `notify.grok_bot` and `conversation.grok_bot`.
 
@@ -270,7 +266,6 @@ Some repairs can only be fixed by editing YAML and restarting, for example a dep
 5. `grok_bot.safe_restart` runs the configuration check again and **only restarts when the config is valid** (and *Allow restarts* is on). Otherwise it returns the errors and Grok Bot can call `grok_bot.restore_backup`.
 6. **The reply is never lost to the restart.** Grok Bot passes the payload's `conversation_id` to `safe_restart` and sends its `grok_bot.reply` right after. While that conversation still awaits its reply, the restart waits for it (at most 25 seconds; the card shows *Restarting after the reply*) and goes ahead 2 seconds after the reply has arrived. Awaiting conversations are kept in storage, so a reply that only arrives after the restart still lands in the right conversation and goes to its `reply_to`. After the restart the history gets a *Restart done, Home Assistant is back* entry, and the card shows *Restarted, waiting for the result* until that reply is in.
 
-![Access page with Trusted access, its confirmation, YAML edits, restarts and the trusted window](docs/images/access-trusted.png)
 
 Allowed files: `configuration.yaml`, `automations.yaml`, `scripts.yaml`, `scenes.yaml` and `*.yaml` under `packages/`. Never `secrets.yaml`, `.storage`, `custom_components` or anything outside `/config`. The four services are admin-only and refuse to run unless Trusted access is active. Every trusted action (switch on/off, backup, restore, restart, denials) goes to the *Last Grok Bot action* audit sensor, the `grok_bot_action` event and a persistent notification. `edit_yaml` never touches `secrets.yaml` or `.storage`, and nested changes go through `replace_text`.
 
