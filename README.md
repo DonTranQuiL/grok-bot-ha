@@ -1,6 +1,5 @@
 # Grok Bot for Home Assistant
 
-
 [![Marketplace](https://img.shields.io/badge/Marketplace-HA%202026.11+-41BDF5.svg)](https://my.home-assistant.io/redirect/marketplace_repository/?owner=DonTranQuiL&repository=grok-bot-ha&category=integration)
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://hacs.xyz/)
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2026.1+-blue.svg)](https://www.home-assistant.io/)
