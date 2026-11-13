@@ -138,6 +138,7 @@ SENSORS: tuple[GrokBotSensorDescription, ...] = (
         state_class=SensorStateClass.MEASUREMENT,
         entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=lambda h: len(h.pending),
+        attrs_fn=lambda h: h.pending_attrs(),
     ),
 )
 
@@ -155,7 +156,7 @@ class GrokBotSensor(GrokBotEntity, SensorEntity):
     """A Grok Bot sensor."""
 
     entity_description: GrokBotSensorDescription
-    _unrecorded_attributes = frozenset({"history", "data", "message", "audit"})
+    _unrecorded_attributes = frozenset({"history", "data", "message", "audit", "conversations"})
 
     def __init__(self, hub: GrokBotHub, description: GrokBotSensorDescription) -> None:
         super().__init__(hub, description.key)

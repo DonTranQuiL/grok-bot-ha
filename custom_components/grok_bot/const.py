@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Final
 
 DOMAIN: Final = "grok_bot"
-INTEGRATION_VERSION: Final = "0.1.3"
+INTEGRATION_VERSION: Final = "0.1.4"
 PAYLOAD_SCHEMA_VERSION: Final = 1
 
 # Config entry data
@@ -355,6 +355,13 @@ CONF_REPLY_TIMEOUT: Final = "reply_timeout"
 DEFAULT_REPLY_TIMEOUT: Final = 10  # minutes, 0 = never
 STATUS_ANSWERED_ELSEWHERE: Final = "answered_elsewhere"
 STATUSES.append(STATUS_ANSWERED_ELSEWHERE)
+
+# Restarts never swallow the reply of the conversation that asked for them.
+STATUS_RESTARTING: Final = "restarting"  # safe_restart waits for the reply first
+STATUS_RESTARTED_WAITING: Final = "restarted_waiting"  # back up, result still to come
+STATUSES.extend([STATUS_RESTARTING, STATUS_RESTARTED_WAITING])
+RESTART_REPLY_GRACE: Final = 25  # seconds safe_restart waits for an awaited reply
+RESTART_AFTER_REPLY: Final = 2  # seconds between that reply and the restart
 
 DEFAULT_OPTIONS.update(
     {

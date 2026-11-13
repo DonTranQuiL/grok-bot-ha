@@ -3,7 +3,7 @@
  * Original animated bot avatar (no third-party branding), ask box, last reply,
  * recent conversation, budget/status chips and repair quick actions.
  */
-const CARD_VERSION = "0.1.0";
+const CARD_VERSION = "0.1.4";
 const DOMAIN = "grok_bot";
 
 const KEYS = {
@@ -27,6 +27,7 @@ const I18N = {
     hour: "h", day: "24h", report: "Report", mode_diagnose: "Diagnose",
     mode_fix: "Diagnose + fix", not_found: "Grok Bot entities not found. Is the integration set up?",
     sent: "Sent", dropped: "Not sent", ago: "ago",
+    restarting: "Restarting after the reply…", restarted: "Restarted, waiting for the result…",
   },
   nl: {
     idle: "Klaar", thinking: "Denkt na…", success: "Beantwoord", error: "Probleem",
@@ -37,6 +38,7 @@ const I18N = {
     hour: "u", day: "24u", report: "Melden", mode_diagnose: "Diagnose",
     mode_fix: "Diagnose + repareren", not_found: "Grok Bot-entiteiten niet gevonden. Is de integratie ingesteld?",
     sent: "Verstuurd", dropped: "Niet verstuurd", ago: "geleden",
+    restarting: "Herstart na het antwoord…", restarted: "Herstart, wacht op het resultaat…",
   },
 };
 
@@ -291,10 +293,20 @@ class GrokBotCard extends HTMLElement {
     const paused = this._state("pause")?.state === "on";
     if (paused) return "paused";
     if (this._waiting) return "thinking";
+    if (this._restartPhase()) return "thinking";
     if (this._flash) return this._flash;
     const status = this._state("last_status")?.state;
     if (["failed", "auth_failed"].includes(status)) return "error";
     return "idle";
+  }
+
+  _restartPhase() {
+    // Survives a page reload and an HA restart: read from the awaiting-reply sensor.
+    const attrs = this._state("pending")?.attributes || {};
+    const status = this._state("last_status")?.state;
+    if (attrs.restarted_waiting || status === "restarted_waiting") return "restarted";
+    if (attrs.restart_scheduled || status === "restarting") return "restarting";
+    return null;
   }
 
   async _call(service, data) {
@@ -408,7 +420,8 @@ class GrokBotCard extends HTMLElement {
     const lang = this._hass.locale?.language || this._hass.language;
     const reply = this._state("last_reply");
     const mood = this._mood();
-    const moodText = { idle: t.idle, thinking: t.thinking, success: t.success, error: t.error, paused: t.paused }[mood];
+    const phase = mood === "thinking" ? this._restartPhase() : null;
+    const moodText = phase ? t[phase] : { idle: t.idle, thinking: t.thinking, success: t.success, error: t.error, paused: t.paused }[mood];
     const avatar = cfg.avatar_url
       ? `<img src="${esc(cfg.avatar_url)}" alt="">`
       : BOT_SVG;
@@ -419,8 +432,8 @@ class GrokBotCard extends HTMLElement {
     }
     const message = reply?.attributes?.message || (reply && !["unknown", "unavailable"].includes(reply.state) ? reply.state : "");
     let bubble;
-    if (this._waiting) {
-      bubble = `<div class="bubble"><div class="typing"><span></span><span></span><span></span></div></div>`;
+    if (this._waiting || phase) {
+      bubble = `<div class="bubble">${phase ? `<div class="rtitle">${esc(t[phase])}</div>` : ""}<div class="typing"><span></span><span></span><span></span></div></div>`;
     } else if (message) {
       bubble = `<div class="bubble">${reply.attributes.title ? `<div class="rtitle">${esc(reply.attributes.title)}</div>` : ""}${esc(message)}<div class="meta">${esc(timeAgo(reply.attributes.received, lang))}</div></div>`;
     } else {

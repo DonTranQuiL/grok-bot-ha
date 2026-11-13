@@ -387,7 +387,9 @@
           "dropped_cooldown": "Dropped (cooldown)",
           "dropped_quiet_hours": "Dropped (quiet hours)",
           "dropped_too_large": "Dropped (too large)",
-          "answered_elsewhere": "Replied in Grok Bot app"
+          "answered_elsewhere": "Replied in Grok Bot app",
+          "restarting": "Restarting after the reply",
+          "restarted_waiting": "Restarted, waiting for the result"
         }
       },
       "last_sent": {
@@ -813,6 +815,10 @@
       "name": "Check the configuration and restart",
       "description": "Trusted access with restarts allowed only. Runs a configuration check and restarts only when it is valid; otherwise returns the errors.",
       "fields": {
+        "conversation_id": {
+          "name": "Conversation",
+          "description": "Restart only after the reply of this conversation (the payload's conversation_id) has arrived, at most 25 seconds later. Without it the restart waits for any conversation that still awaits a reply."
+        },
         "config_entry_id": {
           "name": "Config entry",
           "description": "Only needed with more than one Grok Bot entry."

@@ -60,6 +60,7 @@ from .const import (
     STATUS_DROPPED_TOO_LARGE,
     STATUS_FAILED,
     STATUS_IDLE,
+    STATUS_RESTARTED_WAITING,
     STATUS_SENT,
 )
 
@@ -163,6 +164,8 @@ class GrokBotHub:
         self.last_reply: dict[str, Any] | None = None
         self.history: deque[dict[str, Any]] = deque(maxlen=HISTORY_LEN)
         self.pending: dict[str, dict[str, Any]] = {}
+        # Set by safe_restart, survives the restart, consumed by the next start.
+        self.restart_marker: dict[str, Any] | None = None
         self.connected = False
         self.recent_errors: deque[dict[str, Any]] = deque(maxlen=25)
         self._unsubs: list = []
@@ -194,12 +197,68 @@ class GrokBotHub:
             self.last_sent = dt_util.parse_datetime(ts)
         self.last_status = data.get("last_status", STATUS_IDLE)
         self.connected = bool(data.get("connected", False))
+        pending = data.get("pending") or {}
+        if isinstance(pending, dict):
+            self.pending = {
+                str(cid): dict(item) for cid, item in list(pending.items())[-PENDING_LEN:]
+            }
+        self.restart_marker = data.get("restart") or None
         self.access.load(data)
         self.trusted.load(data)
         self.trusted.update_issue()
+        if self.restart_marker:
+            self._after_restart(self.restart_marker)
         self._unsubs.append(
             async_track_time_interval(self.hass, self._async_tick, timedelta(minutes=1))
         )
+
+    @property
+    def restarted_waiting(self) -> bool:
+        """Home Assistant restarted for a conversation whose result is still to come."""
+        return any(item.get("restarted") for item in self.pending.values())
+
+    @property
+    def restart_scheduled(self) -> bool:
+        return self.trusted.restart_scheduled
+
+    def pending_attrs(self) -> dict[str, Any]:
+        return {
+            "restart_scheduled": self.restart_scheduled,
+            "restarted_waiting": self.restarted_waiting,
+            "conversations": [
+                {
+                    "conversation_id": cid,
+                    "type": item.get("type"),
+                    "restarting": bool(item.get("restarting")),
+                    "restarted": bool(item.get("restarted")),
+                }
+                for cid, item in self.pending.items()
+            ],
+        }
+
+    def _after_restart(self, marker: dict[str, Any]) -> None:
+        """First start after grok_bot.safe_restart: history entry + keep awaiting replies."""
+        self.restart_marker = None
+        now = _time.time()
+        waiting = [cid for cid in marker.get("conversations", []) if cid in self.pending]
+        for cid in waiting:
+            item = self.pending[cid]
+            item.pop("restarting", None)
+            item["restarted"] = True
+            item["created"] = now  # the reply timeout starts again after the restart
+        self._remember(
+            {
+                "direction": "in",
+                "type": "system",
+                "message": "Restart done, Home Assistant is back.",
+                "title": None,
+                "conversation_id": marker.get("conversation_id"),
+                "time": dt_util.utcnow().isoformat(),
+            }
+        )
+        self.last_status = STATUS_RESTARTED_WAITING if waiting else STATUS_IDLE
+        self.trusted.record_restart_done(marker, waiting)
+        self._save()
 
     @callback
     def _async_tick(self, _now: datetime) -> None:
@@ -243,6 +302,7 @@ class GrokBotHub:
     def _mark_handled(self, cids: list[str]) -> int:
         for cid in cids:
             self.pending.pop(cid, None)
+            self.trusted.async_reply_arrived(cid)
         if cids:
             self.last_status = STATUS_ANSWERED_ELSEWHERE
             self._save()
@@ -314,6 +374,8 @@ class GrokBotHub:
             "last_sent": self.last_sent.isoformat() if self.last_sent else None,
             "last_status": self.last_status,
             "connected": self.connected,
+            "pending": self.pending,
+            "restart": self.restart_marker,
             **self.access.to_store(),
             **self.trusted.to_store(),
         }
@@ -322,7 +384,11 @@ class GrokBotHub:
     def _save(self) -> None:
         self._store.async_delay_save(self._data_to_save, 5)
 
+    async def async_save_now(self) -> None:
+        await self._store.async_save(self._data_to_save())
+
     async def async_shutdown(self) -> None:
+        self.trusted.async_cancel_restart()
         for unsub in self._unsubs:
             unsub()
         self._unsubs.clear()
@@ -617,6 +683,8 @@ class GrokBotHub:
     ) -> dict[str, Any]:
         """A reply from Grok Bot (via grok_bot.reply or the inbound webhook)."""
         pending = self.pending.pop(conversation_id or "", None) or {}
+        if pending and self.last_status == STATUS_RESTARTED_WAITING and not self.restarted_waiting:
+            self.last_status = STATUS_IDLE
         if not self.connected:
             self.connected = True
             async_dispatcher_send(self.hass, SIGNAL_CONNECTED, self.entry.entry_id)
@@ -651,6 +719,9 @@ class GrokBotHub:
             },
         )
         delivered = await self._deliver_reply(target, message, title)
+        if pending:
+            # A restart waiting for this reply now goes ahead (after a short pause).
+            self.trusted.async_reply_arrived(conversation_id or "")
         self._save()
         self._notify()
         return {"delivered_to": target if delivered else None}

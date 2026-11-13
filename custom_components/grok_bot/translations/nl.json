@@ -387,7 +387,9 @@
           "dropped_cooldown": "Verworpen (afkoeltijd)",
           "dropped_quiet_hours": "Verworpen (stille uren)",
           "dropped_too_large": "Verworpen (te groot)",
-          "answered_elsewhere": "Beantwoord in Grok Bot-app"
+          "answered_elsewhere": "Beantwoord in Grok Bot-app",
+          "restarting": "Herstart na het antwoord",
+          "restarted_waiting": "Herstart, wacht op het resultaat"
         }
       },
       "last_sent": {
@@ -813,6 +815,10 @@
       "name": "Configuratie controleren en herstarten",
       "description": "Alleen met vertrouwde toegang en herstarten toegestaan. Controleert de configuratie en herstart alleen als die geldig is; anders komen de fouten terug.",
       "fields": {
+        "conversation_id": {
+          "name": "Gesprek",
+          "description": "Herstart pas als het antwoord van dit gesprek (de conversation_id uit het bericht) binnen is, uiterlijk 25 seconden later. Zonder dit wacht de herstart op elk gesprek dat nog op antwoord wacht."
+        },
         "config_entry_id": {
           "name": "Configuratie-entry",
           "description": "Alleen nodig bij meer dan een Grok Bot-entry."

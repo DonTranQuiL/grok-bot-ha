@@ -332,7 +332,7 @@ def async_setup_services(hass: HomeAssistant) -> None:
         )
 
     async def safe_restart(call: ServiceCall) -> ServiceResponse:
-        return await _hub(hass, call).trusted.async_safe_restart()
+        return await _hub(hass, call).trusted.async_safe_restart(call.data.get("conversation_id"))
 
     entry_field = {vol.Optional(ATTR_CONFIG_ENTRY_ID): cv.string}
     # Trusted helpers are admin-only and only work while trusted access is active.
@@ -363,7 +363,11 @@ def async_setup_services(hass: HomeAssistant) -> None:
                 }
             ),
         ),
-        (SERVICE_SAFE_RESTART, safe_restart, vol.Schema(entry_field)),
+        (
+            SERVICE_SAFE_RESTART,
+            safe_restart,
+            vol.Schema({**entry_field, vol.Optional("conversation_id"): cv.string}),
+        ),
     ):
         async_register_admin_service(
             hass, DOMAIN, name, handler, schema, supports_response=SupportsResponse.OPTIONAL

@@ -15,7 +15,9 @@
           "dropped_quiet_hours": "mdi:sleep",
           "dropped_too_large": "mdi:file-alert",
           "idle": "mdi:robot-happy-outline",
-          "answered_elsewhere": "mdi:message-check"
+          "answered_elsewhere": "mdi:message-check",
+          "restarting": "mdi:restart-alert",
+          "restarted_waiting": "mdi:timer-sand"
         }
       },
       "last_sent": {

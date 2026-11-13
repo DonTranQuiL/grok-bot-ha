@@ -7,7 +7,10 @@ module adds the Home Assistant side safety net:
   ``/config/.grok_bot_backups/`` before any edit;
 * ``grok_bot.restore_backup``: put a backup back;
 * ``grok_bot.safe_restart``: check the configuration first and only restart when
-  it is valid and restarts are allowed.
+  it is valid and restarts are allowed. When a conversation still awaits its
+  reply the restart waits for that reply (at most ``RESTART_REPLY_GRACE``
+  seconds), and the awaiting conversation is kept in the Store so a reply that
+  arrives after the restart still lands in the right conversation.
 
 Trusted is only active while the option is on, the warning is confirmed and the
 *Trusted access* switch is on (by default for a 30 minute window that then
@@ -27,6 +30,7 @@ from homeassistant.components import persistent_notification
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers import issue_registry as ir
+from homeassistant.helpers.event import async_call_later
 from homeassistant.util import dt as dt_util
 
 from .const import (
@@ -40,6 +44,9 @@ from .const import (
     CONF_TRUSTED_DURATION,
     DOMAIN,
     ISSUE_TRUSTED_ALWAYS,
+    RESTART_AFTER_REPLY,
+    RESTART_REPLY_GRACE,
+    STATUS_RESTARTING,
     TRUSTED_ALWAYS,
     TRUSTED_DENY,
     TRUSTED_DIRS,
@@ -88,6 +95,9 @@ class TrustedManager:
         self.hub = hub
         self.until: float | str | None = None  # epoch, FOREVER or None (off)
         self.backups: list[dict[str, Any]] = []
+        self._restart_unsub: Any = None
+        self._restart_waiting: set[str] = set()
+        self._restart_fired = False
 
     # ------------------------------------------------------------- state
     @property
@@ -329,16 +339,114 @@ class TrustedManager:
             "restart_required": True,
         }
 
-    async def async_safe_restart(self) -> dict[str, Any]:
+    @property
+    def restart_scheduled(self) -> bool:
+        return self._restart_unsub is not None
+
+    async def async_safe_restart(self, conversation_id: str | None = None) -> dict[str, Any]:
+        """Check the configuration, then restart once the awaited reply is in.
+
+        With ``conversation_id`` the restart waits for that conversation's reply;
+        without one it waits for any conversation that is still awaiting a reply.
+        Either way it never waits longer than ``RESTART_REPLY_GRACE`` seconds.
+        """
         self._require(self.allow_restart, "restart_not_allowed")
         errors = await async_check_config(self.hass)
         if errors:
             self._record("safe_restart", False, "config invalid, not restarting", notify=True)
             return {"valid": False, "restarting": False, "errors": errors}
-        self._record("safe_restart", True, "config valid, restarting Home Assistant", notify=True)
-        self.hub.save()
+        hub = self.hub
+        if conversation_id:
+            waiting = [conversation_id] if conversation_id in hub.pending else []
+        else:
+            waiting = list(hub.pending)
+        hub.restart_marker = {
+            "time": dt_util.utcnow().isoformat(),
+            "conversation_id": conversation_id,
+            "conversations": list(hub.pending),
+        }
+        for item in hub.pending.values():
+            item["restarting"] = True
+        if self.restart_scheduled:
+            self._restart_waiting.update(waiting)
+            await hub.async_save_now()
+            return self._restart_result(waiting)
+        if not waiting:
+            self._record(
+                "safe_restart", True, "config valid, restarting Home Assistant", notify=True
+            )
+            await hub.async_save_now()
+            self._restart_fired = True
+            await async_restart(self.hass)
+            return {"valid": True, "restarting": True, "errors": [], "delay": 0}
+        self._restart_waiting = set(waiting)
+        self._restart_fired = False
+        self._restart_unsub = async_call_later(
+            self.hass, RESTART_REPLY_GRACE, self._async_restart_now
+        )
+        hub.last_status = STATUS_RESTARTING
+        self._record(
+            "safe_restart",
+            True,
+            "config valid, restarting Home Assistant after the reply "
+            f"(at most {RESTART_REPLY_GRACE} s)",
+            notify=True,
+        )
+        await hub.async_save_now()
+        hub.notify()
+        return self._restart_result(waiting)
+
+    @staticmethod
+    def _restart_result(waiting: list[str]) -> dict[str, Any]:
+        return {
+            "valid": True,
+            "restarting": True,
+            "errors": [],
+            "delay": RESTART_REPLY_GRACE,
+            "waiting_for_reply": waiting,
+            "note": "Send grok_bot.reply now; Home Assistant restarts right after it arrives.",
+        }
+
+    @callback
+    def async_reply_arrived(self, conversation_id: str) -> None:
+        """The awaited reply is in: restart after a short pause (reply saved first)."""
+        if not self.restart_scheduled or self._restart_fired:
+            return
+        if conversation_id not in self._restart_waiting and conversation_id:
+            return
+        self._restart_unsub()
+        self._restart_unsub = async_call_later(
+            self.hass, RESTART_AFTER_REPLY, self._async_restart_now
+        )
+        self._restart_waiting.clear()
+
+    async def _async_restart_now(self, _now: Any = None) -> None:
+        if self._restart_fired:
+            return
+        self._restart_fired = True
+        self._restart_unsub = None
+        await self.hub.async_save_now()
         await async_restart(self.hass)
-        return {"valid": True, "restarting": True, "errors": []}
+
+    @callback
+    def async_cancel_restart(self) -> None:
+        """Entry unloaded before a delayed restart went ahead: forget it."""
+        if self._restart_unsub is None:
+            return
+        self._restart_unsub()
+        self._restart_unsub = None
+        self._restart_waiting.clear()
+        if not self._restart_fired:
+            self.hub.restart_marker = None
+            for item in self.hub.pending.values():
+                item.pop("restarting", None)
+
+    def record_restart_done(self, marker: dict[str, Any], waiting: list[str]) -> None:
+        """Audit entry on the first start after safe_restart (no notification)."""
+        summary = "Home Assistant is back after the restart"
+        if waiting:
+            summary += f", waiting for the result of {len(waiting)} conversation(s)"
+        self._record("restart_done", True, summary, notify=False)
 
     # ------------------------------------------------------------ helpers
     def _require(self, ok: bool, key: str) -> None:
