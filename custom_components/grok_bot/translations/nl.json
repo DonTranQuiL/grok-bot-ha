@@ -13,7 +13,7 @@
         "data_description": {
           "webhook_url": "De https://-URL van de Grok Bot-routinewebhook.",
           "auth_header": "Plak de waarde precies zoals in de app (bijvoorbeeld `Bearer …`). Hij wordt geheim opgeslagen en nooit gelogd.",
-          "send_test": "Controleert URL en header door {\"type\": \"ping\"} te versturen."
+          "send_test": "Controleert URL en header met een pingbericht (type ping)."
         }
       },
       "preset": {

@@ -13,7 +13,7 @@
         "data_description": {
           "webhook_url": "The https:// URL of the Grok Bot routine webhook.",
           "auth_header": "Paste the value exactly as shown in the app (for example `Bearer …`). It is stored as a secret and never logged.",
-          "send_test": "Checks the URL and header by posting {\"type\": \"ping\"}."
+          "send_test": "Checks the URL and header by posting a ping message (type ping)."
         }
       },
       "preset": {
