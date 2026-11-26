@@ -208,63 +208,6 @@ async def test_repair_watcher(hass, webhook_mock):
     assert payloads[0]["allow_fix"] is True
 
 
-async def test_log_watcher_dedupe_and_filters(hass, webhook_mock):
-    await setup_entry(
-        hass,
-        watch_logs=True,
-        log_level="error",
-        log_logger_mode="deny",
-        log_loggers=["homeassistant.components.noisy"],
-        log_dedupe=3600,
-        log_action="diagnose",
-    )
-    zha = logging.getLogger("homeassistant.components.zha")
-    zha.error("Radio %s lost", "ezsp")
-    zha.error("Radio %s lost", "ezsp")  # duplicate inside the window
-    zha.warning("only a warning")  # below the level
-    logging.getLogger("homeassistant.components.noisy.sub").error("denied")
-    logging.getLogger("custom_components.grok_bot").error("own logs never loop")
-    await hass.async_block_till_done()
-    await hass.async_block_till_done()
-    payloads = posted(webhook_mock)
-    assert len(payloads) == 1
-    assert payloads[0]["type"] == "log_error"
-    assert "Radio ezsp lost" in payloads[0]["message"]
-    assert payloads[0]["data"]["logger"] == "homeassistant.components.zha"
-    assert payloads[0]["action_mode"] == "diagnose"
-
-
-async def test_log_allowlist(hass, webhook_mock):
-    await setup_entry(
-        hass,
-        watch_logs=True,
-        log_level="warning",
-        log_logger_mode="allow",
-        log_loggers=["custom_components.helios_tilt"],
-        log_dedupe=0,
-    )
-    logging.getLogger("custom_components.helios_tilt.cover").warning("stuck")
-    logging.getLogger("homeassistant.components.zha").error("not allowed")
-    await hass.async_block_till_done()
-    await hass.async_block_till_done()
-    assert [p["data"]["logger"] for p in posted(webhook_mock)] == [
-        "custom_components.helios_tilt.cover"
-    ]
-
-
-async def test_automation_and_setup_watchers(hass, webhook_mock):
-    await setup_entry(hass, watch_automations=True, automations_action="fix", watch_setup=True)
-    logging.getLogger("homeassistant.components.automation.morning").error(
-        "Error while executing automation"
-    )
-    logging.getLogger("homeassistant.setup").error("Setup failed for foo")
-    logging.getLogger("homeassistant.components.zha").error("ignored, logs off")
-    await hass.async_block_till_done()
-    await hass.async_block_till_done()
-    kinds = [(p["type"], p["allow_fix"]) for p in posted(webhook_mock)]
-    assert kinds == [("automation_error", True), ("setup_error", False)]
-
-
 async def test_setup_failure_watcher(hass, webhook_mock):
     from homeassistant.config_entries import ConfigEntryState
     from pytest_homeassistant_custom_component.common import MockConfigEntry

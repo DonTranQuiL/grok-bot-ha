@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.2.0 (2026-11-26)
+
+### Removed
+* YAML editing from this integration: `grok_bot.edit_yaml`, `prepare_change` and `restore_backup`. The Home Assistant Marketplace and the HACS default store do not allow catalog integrations to patch the user's YAML. YAML editing will return later as a separate companion you can add as a custom repository, outside the store.
+* The log watcher (root-logger handler that forwarded other integrations' log records and tracebacks) and the access webhook `get_logs` action. Repair issues, failed config entries and unavailable entities remain as signals.
+* The *Failed automations and scripts* watcher, which only worked through that log handler.
+* The *Trusted: allow YAML edits* option. Existing entries keep working: those keys are ignored and dropped on setup.
+
+### Changed
+* Trusted access is now only for restarts, through `grok_bot.safe_restart` (still a configuration check first, and the restart still waits for Grok Bot's reply).
+* *Errors only* and *Errors + repairs, diagnose* presets no longer enable log or automation watchers. They still enable integration setup-failure watching (and repairs, for the diagnose preset).
+
 ## 0.1.4 (2026-11-13)
 
 First public release.

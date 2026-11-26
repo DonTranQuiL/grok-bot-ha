@@ -62,6 +62,7 @@ from .const import (
     STATUS_IDLE,
     STATUS_RESTARTED_WAITING,
     STATUS_SENT,
+    sanitize_options,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -74,8 +75,8 @@ DAY = 86400
 
 
 def options_of(entry: ConfigEntry) -> dict[str, Any]:
-    """Entry options merged over the defaults (0.1.0 options migrated)."""
-    opts = {**DEFAULT_OPTIONS, **entry.options}
+    """Entry options merged over the defaults (older keys sanitized)."""
+    opts = sanitize_options({**DEFAULT_OPTIONS, **entry.options})
     if entry.options.get(CONF_ENABLE_INBOUND_WEBHOOK) and (CONF_ACCESS_METHOD not in entry.options):
         opts[CONF_ACCESS_METHOD] = METHOD_WEBHOOK
     return opts
@@ -167,7 +168,6 @@ class GrokBotHub:
         # Set by safe_restart, survives the restart, consumed by the next start.
         self.restart_marker: dict[str, Any] | None = None
         self.connected = False
-        self.recent_errors: deque[dict[str, Any]] = deque(maxlen=25)
         self._unsubs: list = []
         self._last_drop_log = 0.0
         from .access import AccessManager

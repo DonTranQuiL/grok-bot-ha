@@ -49,7 +49,6 @@ async def async_get_config_entry_diagnostics(
                     "enabled": hub.trusted.enabled,
                     "active": hub.trusted.active,
                     "until": hub.trusted.until_iso,
-                    "backups": len(hub.trusted.backups),
                 },
                 "access_level": hub.access.level,
                 "access_url": hub.access.url,

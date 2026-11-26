@@ -48,9 +48,7 @@ from .const import (
     CONF_ACCESS_REQUIRE_PENDING,
     CONF_ACCESS_TTL,
     CONF_ALLOW_RESTART,
-    CONF_ALLOW_YAML_EDIT,
     CONF_AUTH_HEADER,
-    CONF_AUTOMATIONS_ACTION,
     CONF_ENABLE_CONVERSATION,
     CONF_ENABLE_INBOUND_WEBHOOK,
     CONF_ENABLE_NOTIFY,
@@ -61,11 +59,6 @@ from .const import (
     CONF_IGNORE_UNAVAILABLE,
     CONF_INBOUND_WEBHOOK_ID,
     CONF_INCLUDE_ATTRIBUTES,
-    CONF_LOG_ACTION,
-    CONF_LOG_DEDUPE,
-    CONF_LOG_LEVEL,
-    CONF_LOG_LOGGER_MODE,
-    CONF_LOG_LOGGERS,
     CONF_MAX_PAYLOAD,
     CONF_MAX_PER_DAY,
     CONF_MAX_PER_HOUR,
@@ -87,8 +80,6 @@ from .const import (
     CONF_TRUSTED_DURATION,
     CONF_UNAVAILABLE_ACTION,
     CONF_UNAVAILABLE_MINUTES,
-    CONF_WATCH_AUTOMATIONS,
-    CONF_WATCH_LOGS,
     CONF_WATCH_REPAIRS,
     CONF_WATCH_SETUP,
     CONF_WATCH_UNAVAILABLE,
@@ -101,10 +92,6 @@ from .const import (
     FILTER_MIN_INTERVAL,
     FILTER_TO_STATES,
     INTEGRATION_VERSION,
-    LOG_LEVELS,
-    LOGGER_MODE_ALL,
-    LOGGER_MODE_ALLOW,
-    LOGGER_MODE_DENY,
     MCP_PATH,
     METHOD_MCP,
     METHOD_WEBHOOK,
@@ -115,6 +102,7 @@ from .const import (
     PRESET_OPTIONS,
     PRESETS,
     TRUSTED_DURATIONS,
+    sanitize_options,
 )
 from .mcp import detect_mcp, ha_mcp_installed, setup_links
 from .prompt import setup_prompt
@@ -126,7 +114,7 @@ CONF_SEND_TEST = "send_test"
 WEBHOOK_LEVELS = [ACCESS_REPLY, ACCESS_READ, ACCESS_CONTROL, ACCESS_FIX]
 CONF_REMOVE = "remove"
 CONF_FILTER_ENTITY = "filter_entity"
-SECTIONS = ("logs", "repairs", "unavailable", "automations", "setup")
+SECTIONS = ("repairs", "unavailable", "setup")
 
 
 def unique_id_for(url: str) -> str:
@@ -475,7 +463,7 @@ class GrokBotOptionsFlow(OptionsFlow):
     @property
     def _opts(self) -> dict[str, Any]:
         if not self._options:
-            self._options = {**DEFAULT_OPTIONS, **self.config_entry.options}
+            self._options = sanitize_options({**DEFAULT_OPTIONS, **self.config_entry.options})
             if self.config_entry.options.get(CONF_ENABLE_INBOUND_WEBHOOK) and (
                 CONF_ACCESS_METHOD not in self.config_entry.options
             ):
@@ -627,10 +615,9 @@ class GrokBotOptionsFlow(OptionsFlow):
                     vol.Required(
                         CONF_ACCESS_MAX_RESPONSE, default=o[CONF_ACCESS_MAX_RESPONSE]
                     ): _num(4, 1024, unit="kB"),
-                    # Trusted: YAML edits + restarts for repairs. Off by default.
+                    # Trusted: restarts for repairs. Off by default.
                     vol.Required(CONF_TRUSTED, default=o[CONF_TRUSTED]): bool,
                     vol.Required(CONF_TRUSTED_CONFIRM, default=o[CONF_TRUSTED_CONFIRM]): bool,
-                    vol.Required(CONF_ALLOW_YAML_EDIT, default=o[CONF_ALLOW_YAML_EDIT]): bool,
                     vol.Required(CONF_ALLOW_RESTART, default=o[CONF_ALLOW_RESTART]): bool,
                     vol.Required(CONF_TRUSTED_DURATION, default=o[CONF_TRUSTED_DURATION]): _select(
                         list(TRUSTED_DURATIONS), "trusted_duration"
@@ -801,38 +788,12 @@ class GrokBotOptionsFlow(OptionsFlow):
         if user_input is not None:
             for name in SECTIONS:
                 values = dict(user_input.get(name, {}))
-                if CONF_LOG_DEDUPE in values:
-                    values[CONF_LOG_DEDUPE] = int(values[CONF_LOG_DEDUPE])
                 self._opts.update(values)
             self._opts[CONF_PRESET] = PRESET_CUSTOM
             return await self._saved_menu()
         o = self._opts
         schema = vol.Schema(
             {
-                vol.Required("logs"): section(
-                    vol.Schema(
-                        {
-                            vol.Required(CONF_WATCH_LOGS, default=o[CONF_WATCH_LOGS]): bool,
-                            vol.Required(CONF_LOG_LEVEL, default=o[CONF_LOG_LEVEL]): _select(
-                                LOG_LEVELS, "log_level"
-                            ),
-                            vol.Required(
-                                CONF_LOG_LOGGER_MODE, default=o[CONF_LOG_LOGGER_MODE]
-                            ): _select(
-                                [LOGGER_MODE_ALL, LOGGER_MODE_ALLOW, LOGGER_MODE_DENY],
-                                "logger_mode",
-                            ),
-                            vol.Optional(CONF_LOG_LOGGERS, default=o[CONF_LOG_LOGGERS]): _select(
-                                [], "log_loggers", multiple=True, custom=True
-                            ),
-                            vol.Required(CONF_LOG_DEDUPE, default=o[CONF_LOG_DEDUPE]): _num(
-                                0, 604800, unit="s"
-                            ),
-                            vol.Required(CONF_LOG_ACTION, default=o[CONF_LOG_ACTION]): _action(),
-                        }
-                    ),
-                    {"collapsed": False},
-                ),
                 vol.Required("repairs"): section(
                     vol.Schema(
                         {
@@ -859,20 +820,6 @@ class GrokBotOptionsFlow(OptionsFlow):
                             vol.Required(
                                 CONF_UNAVAILABLE_ACTION,
                                 default=o[CONF_UNAVAILABLE_ACTION],
-                            ): _action(),
-                        }
-                    ),
-                    {"collapsed": True},
-                ),
-                vol.Required("automations"): section(
-                    vol.Schema(
-                        {
-                            vol.Required(
-                                CONF_WATCH_AUTOMATIONS, default=o[CONF_WATCH_AUTOMATIONS]
-                            ): bool,
-                            vol.Required(
-                                CONF_AUTOMATIONS_ACTION,
-                                default=o[CONF_AUTOMATIONS_ACTION],
                             ): _action(),
                         }
                     ),

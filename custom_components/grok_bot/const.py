@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from typing import Final
+from typing import Any, Final
 
 DOMAIN: Final = "grok_bot"
-INTEGRATION_VERSION: Final = "0.1.4"
+INTEGRATION_VERSION: Final = "0.2.0"
 PAYLOAD_SCHEMA_VERSION: Final = 1
 
 # Config entry data
@@ -63,22 +63,20 @@ CONF_STATE_ACTION: Final = "state_action"
 CONF_EVENT_ACTION: Final = "event_action"
 
 # Options: watchers (all off by default)
+# Removed in 0.2.0 (kept so older config entries can be sanitized):
 CONF_WATCH_LOGS: Final = "watch_logs"
 CONF_LOG_LEVEL: Final = "log_level"
 CONF_LOG_LOGGERS: Final = "log_loggers"
 CONF_LOG_LOGGER_MODE: Final = "log_logger_mode"
-LOGGER_MODE_ALL: Final = "all"
-LOGGER_MODE_ALLOW: Final = "allow"
-LOGGER_MODE_DENY: Final = "deny"
 CONF_LOG_DEDUPE: Final = "log_dedupe"
 CONF_LOG_ACTION: Final = "log_action"
+CONF_WATCH_AUTOMATIONS: Final = "watch_automations"
+CONF_AUTOMATIONS_ACTION: Final = "automations_action"
 CONF_WATCH_REPAIRS: Final = "watch_repairs"
 CONF_REPAIRS_ACTION: Final = "repairs_action"
 CONF_WATCH_UNAVAILABLE: Final = "watch_unavailable"
 CONF_UNAVAILABLE_MINUTES: Final = "unavailable_minutes"
 CONF_UNAVAILABLE_ACTION: Final = "unavailable_action"
-CONF_WATCH_AUTOMATIONS: Final = "watch_automations"
-CONF_AUTOMATIONS_ACTION: Final = "automations_action"
 CONF_WATCH_SETUP: Final = "watch_setup"
 CONF_SETUP_ACTION: Final = "setup_action"
 
@@ -91,7 +89,6 @@ CONF_TEMPLATE_STATE: Final = "template_state"
 CONF_TEMPLATE_EVENT: Final = "template_event"
 CONF_TEMPLATE_ISSUE: Final = "template_issue"
 
-DEFAULT_LOG_DEDUPE: Final = 3600
 DEFAULT_UNAVAILABLE_MINUTES: Final = 15
 DEFAULT_MAX_PAYLOAD: Final = 16000
 
@@ -108,19 +105,11 @@ DEFAULT_OPTIONS: Final[dict] = {
     CONF_PRESET: PRESET_ASK_ONLY,
     CONF_STATE_ACTION: ACTION_REPORT,
     CONF_EVENT_ACTION: ACTION_REPORT,
-    CONF_WATCH_LOGS: False,
-    CONF_LOG_LEVEL: "error",
-    CONF_LOG_LOGGERS: [],
-    CONF_LOG_LOGGER_MODE: LOGGER_MODE_ALL,
-    CONF_LOG_DEDUPE: DEFAULT_LOG_DEDUPE,
-    CONF_LOG_ACTION: ACTION_REPORT,
     CONF_WATCH_REPAIRS: False,
     CONF_REPAIRS_ACTION: ACTION_REPORT,
     CONF_WATCH_UNAVAILABLE: [],
     CONF_UNAVAILABLE_MINUTES: DEFAULT_UNAVAILABLE_MINUTES,
     CONF_UNAVAILABLE_ACTION: ACTION_REPORT,
-    CONF_WATCH_AUTOMATIONS: False,
-    CONF_AUTOMATIONS_ACTION: ACTION_REPORT,
     CONF_WATCH_SETUP: False,
     CONF_SETUP_ACTION: ACTION_REPORT,
     CONF_QUIET_HOURS: False,
@@ -146,35 +135,22 @@ DEFAULT_OPTIONS: Final[dict] = {
 # Preset -> option overrides (applied on top of DEFAULT_OPTIONS' watcher keys)
 PRESET_OPTIONS: Final[dict[str, dict]] = {
     PRESET_ASK_ONLY: {
-        CONF_WATCH_LOGS: False,
         CONF_WATCH_REPAIRS: False,
-        CONF_WATCH_AUTOMATIONS: False,
         CONF_WATCH_SETUP: False,
     },
     PRESET_ERRORS_ONLY: {
-        CONF_WATCH_LOGS: True,
-        CONF_LOG_LEVEL: "error",
-        CONF_LOG_ACTION: ACTION_REPORT,
         CONF_WATCH_REPAIRS: False,
-        CONF_WATCH_AUTOMATIONS: True,
-        CONF_AUTOMATIONS_ACTION: ACTION_REPORT,
         CONF_WATCH_SETUP: True,
         CONF_SETUP_ACTION: ACTION_REPORT,
     },
     PRESET_ERRORS_REPAIRS_DIAGNOSE: {
-        CONF_WATCH_LOGS: True,
-        CONF_LOG_LEVEL: "error",
-        CONF_LOG_ACTION: ACTION_DIAGNOSE,
         CONF_WATCH_REPAIRS: True,
         CONF_REPAIRS_ACTION: ACTION_DIAGNOSE,
-        CONF_WATCH_AUTOMATIONS: True,
-        CONF_AUTOMATIONS_ACTION: ACTION_DIAGNOSE,
         CONF_WATCH_SETUP: True,
         CONF_SETUP_ACTION: ACTION_DIAGNOSE,
     },
 }
 
-LOG_LEVELS: Final = ["warning", "error", "critical"]
 
 # Events that may never be forwarded (loops / floods)
 BLOCKED_EVENT_TYPES: Final = frozenset(
@@ -277,7 +253,6 @@ ACT_REPLY: Final = "reply"
 ACT_GET_STATES: Final = "get_states"
 ACT_GET_HISTORY: Final = "get_history"
 ACT_LIST_REPAIRS: Final = "list_repairs"
-ACT_GET_LOGS: Final = "get_logs"
 ACT_LIST_ENTRIES: Final = "list_entries"
 ACT_CALL_SERVICE: Final = "call_service"
 ACT_RELOAD_ENTRY: Final = "reload_entry"
@@ -287,7 +262,6 @@ READ_ACTIONS: Final = [
     ACT_GET_STATES,
     ACT_GET_HISTORY,
     ACT_LIST_REPAIRS,
-    ACT_GET_LOGS,
     ACT_LIST_ENTRIES,
 ]
 FIX_ACTIONS: Final = [ACT_RELOAD_ENTRY, ACT_IGNORE_REPAIR, ACT_ENABLE_ENTITY]
@@ -389,10 +363,10 @@ SETUP_NOTIFICATION_ID: Final = "grok_bot_setup_prompt_{}"
 SIGNAL_CONNECTED: Final = "grok_bot_connected"
 
 # ----------------------------------------------------------------- trusted
-# Opt-in (Advanced) permission for repairs that need YAML edits and restarts.
+# Opt-in (Advanced) permission for repairs that need a restart.
 CONF_TRUSTED: Final = "trusted"
 CONF_TRUSTED_CONFIRM: Final = "trusted_confirm"
-CONF_ALLOW_YAML_EDIT: Final = "allow_yaml_edit"
+CONF_ALLOW_YAML_EDIT: Final = "allow_yaml_edit"  # removed in 0.2.0, sanitized on load
 CONF_ALLOW_RESTART: Final = "allow_restart"
 CONF_TRUSTED_DURATION: Final = "trusted_duration"
 TRUSTED_ALWAYS: Final = "always"
@@ -400,25 +374,40 @@ TRUSTED_ALWAYS: Final = "always"
 TRUSTED_DURATIONS: Final = {"30m": 30, "2h": 120, "24h": 1440, TRUSTED_ALWAYS: None}
 DEFAULT_TRUSTED_DURATION: Final = "30m"
 ISSUE_TRUSTED_ALWAYS: Final = "trusted_always_on"
-SERVICE_EDIT_YAML: Final = "edit_yaml"
-YAML_OPERATIONS: Final = ["remove_key", "set_key", "replace_text"]
-BACKUP_DIR: Final = ".grok_bot_backups"
-BACKUPS_LEN: Final = 50
-SERVICE_PREPARE_CHANGE: Final = "prepare_change"
-SERVICE_RESTORE_BACKUP: Final = "restore_backup"
 SERVICE_SAFE_RESTART: Final = "safe_restart"
-TRUSTED_FILES: Final = frozenset(
-    {"configuration.yaml", "automations.yaml", "scripts.yaml", "scenes.yaml"}
-)
-TRUSTED_DIRS: Final = ("packages",)
-TRUSTED_DENY: Final = frozenset({"secrets.yaml", ".storage", "custom_components", BACKUP_DIR})
+# How long identical setup-failure signals are suppressed (seconds).
+SETUP_DEDUPE: Final = 3600
 
 DEFAULT_OPTIONS.update(
     {
         CONF_TRUSTED: False,
         CONF_TRUSTED_CONFIRM: False,
-        CONF_ALLOW_YAML_EDIT: True,
         CONF_ALLOW_RESTART: True,
         CONF_TRUSTED_DURATION: DEFAULT_TRUSTED_DURATION,
     }
 )
+
+# Keys dropped in 0.2.0 (YAML editing, log watcher, log-based automation watcher).
+REMOVED_OPTIONS: Final = frozenset(
+    {
+        CONF_WATCH_LOGS,
+        CONF_LOG_LEVEL,
+        CONF_LOG_LOGGERS,
+        CONF_LOG_LOGGER_MODE,
+        CONF_LOG_DEDUPE,
+        CONF_LOG_ACTION,
+        CONF_WATCH_AUTOMATIONS,
+        CONF_AUTOMATIONS_ACTION,
+        CONF_ALLOW_YAML_EDIT,
+    }
+)
+
+
+def sanitize_options(options: dict[str, Any]) -> dict[str, Any]:
+    """Drop removed keys and unknown access actions from older config entries."""
+    out = {key: value for key, value in options.items() if key not in REMOVED_OPTIONS}
+    if CONF_ACCESS_ACTIONS in out:
+        out[CONF_ACCESS_ACTIONS] = [
+            action for action in out[CONF_ACCESS_ACTIONS] if action in ALL_ACTIONS
+        ]
+    return out

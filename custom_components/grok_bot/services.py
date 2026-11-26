@@ -41,17 +41,13 @@ from .const import (
     SERVICE_ASK,
     SERVICE_CLEAR_HISTORY,
     SERVICE_DIAGNOSE,
-    SERVICE_EDIT_YAML,
     SERVICE_FIX_ISSUE,
     SERVICE_HEALTH_REPORT,
     SERVICE_PING,
-    SERVICE_PREPARE_CHANGE,
     SERVICE_REPLY,
-    SERVICE_RESTORE_BACKUP,
     SERVICE_ROTATE_TOKEN,
     SERVICE_SAFE_RESTART,
     SERVICE_SEND_EVENT,
-    YAML_OPERATIONS,
 )
 
 if TYPE_CHECKING:
@@ -186,7 +182,7 @@ def _issue(hass: HomeAssistant, call: ServiceCall) -> dict | None:
 
 
 def health_snapshot(hass: HomeAssistant, hub: GrokBotHub) -> dict[str, Any]:
-    """Open repairs, failed integrations, unavailable entities, recent errors."""
+    """Open repairs, failed integrations and unavailable entities."""
     from .triggers import open_issues
 
     unavailable = [
@@ -204,7 +200,6 @@ def health_snapshot(hass: HomeAssistant, hub: GrokBotHub) -> dict[str, Any]:
         "failed_integrations": failed,
         "unavailable_count": len(unavailable),
         "unavailable_entities": unavailable[:50],
-        "recent_errors": list(hub.recent_errors)[-10:],
     }
 
 
@@ -275,8 +270,7 @@ def async_setup_services(hass: HomeAssistant) -> None:
         message = (
             f"Health report: {len(snap['repair_issues'])} repair issues, "
             f"{len(snap['failed_integrations'])} failed integrations, "
-            f"{snap['unavailable_count']} unavailable entities, "
-            f"{len(snap['recent_errors'])} recent errors."
+            f"{snap['unavailable_count']} unavailable entities."
         )
         return await hub.async_send(
             "health_report",
@@ -313,56 +307,12 @@ def async_setup_services(hass: HomeAssistant) -> None:
     async def clear_history(call: ServiceCall) -> ServiceResponse:
         return await _hub(hass, call).async_clear_history()
 
-    async def prepare_change(call: ServiceCall) -> ServiceResponse:
-        return await _hub(hass, call).trusted.async_prepare_change(call.data["path"])
-
-    async def restore_backup(call: ServiceCall) -> ServiceResponse:
-        return await _hub(hass, call).trusted.async_restore_backup(call.data["backup_path"])
-
-    async def edit_yaml(call: ServiceCall) -> ServiceResponse:
-        d = call.data
-        return await _hub(hass, call).trusted.async_edit_yaml(
-            d["path"],
-            d["operation"],
-            key=d.get("key"),
-            value=d.get("value"),
-            find=d.get("find"),
-            replace=d.get("replace") or "",
-            count=d.get("count", 0),
-        )
-
     async def safe_restart(call: ServiceCall) -> ServiceResponse:
         return await _hub(hass, call).trusted.async_safe_restart(call.data.get("conversation_id"))
 
     entry_field = {vol.Optional(ATTR_CONFIG_ENTRY_ID): cv.string}
     # Trusted helpers are admin-only and only work while trusted access is active.
     for name, handler, schema in (
-        (
-            SERVICE_PREPARE_CHANGE,
-            prepare_change,
-            vol.Schema({**entry_field, vol.Required("path"): cv.string}),
-        ),
-        (
-            SERVICE_RESTORE_BACKUP,
-            restore_backup,
-            vol.Schema({**entry_field, vol.Required("backup_path"): cv.string}),
-        ),
-        (
-            SERVICE_EDIT_YAML,
-            edit_yaml,
-            vol.Schema(
-                {
-                    **entry_field,
-                    vol.Required("path"): cv.string,
-                    vol.Required("operation"): vol.In(YAML_OPERATIONS),
-                    vol.Optional("key"): cv.string,
-                    vol.Optional("value"): object,
-                    vol.Optional("find"): cv.string,
-                    vol.Optional("replace", default=""): vol.Any(None, str),
-                    vol.Optional("count", default=0): vol.All(int, vol.Range(min=0)),
-                }
-            ),
-        ),
         (
             SERVICE_SAFE_RESTART,
             safe_restart,

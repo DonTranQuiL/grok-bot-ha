@@ -54,7 +54,6 @@ A 0.1.0 style body `{"message": "…", "conversation_id": "…"}` is treated as 
 | `get_states` | `entity_ids` / `domains`, `state`, `attributes`, `limit` (≤1000) | read |
 | `get_history` | `entity_ids` (≤10), `hours` (≤48) | read |
 | `list_repairs` | – | read |
-| `get_logs` | `level` (warning/error/critical), `limit` (≤100) | read |
 | `list_entries` | `domain`, `state` | read |
 | `call_service` | `domain`, `service`, `data`, `target`, `return_response` | control |
 | `reload_entry` | `entry_id` | fix |
@@ -86,15 +85,12 @@ A send that expects an answer is "awaiting" until `grok_bot.reply` (or a `reply`
 Only for fix requests (`action_mode: fix`, `allow_fix: true`) while the user's *Trusted access* switch is on, `access` also carries:
 
 ```json
-"trusted": true, "allow_yaml_edit": true, "allow_restart": true, "trusted_until": "2026-11-13T11:15:00+00:00", "always_on": false,
-"edit_service": "grok_bot.edit_yaml", "backup_service": "grok_bot.prepare_change", "restore_service": "grok_bot.restore_backup", "restart_service": "grok_bot.safe_restart"
+"trusted": true, "allow_restart": true, "trusted_until": "2026-11-13T11:15:00+00:00", "always_on": false,
+"restart_service": "grok_bot.safe_restart"
 ```
 
-Procedure for Grok Bot (through its MCP connector, all four services are admin-only):
+`grok_bot.safe_restart` is admin-only. It restarts only when the configuration check passes and `allow_restart` is on, and waits for the awaited reply when a `conversation_id` is passed.
 
-1. `grok_bot.prepare_change` `{path}` → `{path, backup_path}`. Allowed: `configuration.yaml`, `automations.yaml`, `scripts.yaml`, `scenes.yaml`, `packages/**/*.yaml`. Never `secrets.yaml`, `.storage`, `custom_components`, dot paths or anything outside `/config`.
-2. Edit the file, preferably with `grok_bot.edit_yaml` `{path, operation, key?, value?, find?, replace?, count?}` → `{ok, changed, path, backup_path, errors, restored?, restart_required?}`. Operations: `remove_key` / `set_key` (top-level keys, including `http`, `homeassistant`, `frontend`, `lovelace`; duplicate blocks are all removed/replaced) and `replace_text` (exact text, `count` 0 = all). It makes its own backup, validates the YAML, runs check_config and restores the backup automatically on failure (`restored: true`). The connector's own file tools work too, after step 1.
-3. `grok_bot.safe_restart` → `{valid, restarting, errors}`. It restarts only when the configuration check passes and `allow_restart` is on.
-4. On errors: `grok_bot.restore_backup` `{backup_path}`.
+This integration does not edit the user's YAML configuration. Catalog integrations in the Home Assistant Marketplace and the HACS default store may not patch user YAML.
 
 `trusted_until` is `"forever"` with *Always on* (`always_on: true`); timed windows are 30 min, 2 h or 24 h and end on restart. Every step, denial, switch-on and auto-revert is audited and announced with a persistent notification.

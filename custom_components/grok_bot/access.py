@@ -40,7 +40,6 @@ from .const import (
     ACT_CALL_SERVICE,
     ACT_ENABLE_ENTITY,
     ACT_GET_HISTORY,
-    ACT_GET_LOGS,
     ACT_GET_STATES,
     ACT_IGNORE_REPAIR,
     ACT_LIST_ENTRIES,
@@ -379,8 +378,6 @@ class AccessManager:
             from .triggers import open_issues
 
             return open_issues(hass)
-        if kind == ACT_GET_LOGS:
-            return self._get_logs(action)
         if kind == ACT_LIST_ENTRIES:
             return self._list_entries(action)
         if kind == ACT_CALL_SERVICE:
@@ -463,35 +460,6 @@ class AccessManager:
             True,
         )
         return {entity_id: summarize_history(states) for entity_id, states in raw.items()}
-
-    def _get_logs(self, action: dict[str, Any]) -> list[dict[str, Any]]:
-        level = str(action.get("level", "WARNING")).upper()
-        rank = logging.getLevelName(level) if level in ("WARNING", "ERROR", "CRITICAL") else 30
-        limit = min(int(action.get("limit", 30)), 100)
-        handler = self.hass.data.get("system_log")
-        records: list[dict[str, Any]] = []
-        if handler is not None and hasattr(handler, "records"):
-            records = handler.records.to_list()
-        else:
-            records = list(reversed(self.hub.recent_errors))
-        out = []
-        for rec in records:
-            if logging.getLevelName(str(rec.get("level", "WARNING"))) < rank:
-                continue
-            msg = rec.get("message")
-            out.append(
-                {
-                    "name": rec.get("name") or rec.get("logger"),
-                    "level": rec.get("level"),
-                    "message": (msg if isinstance(msg, list) else [msg])[:3],
-                    "source": rec.get("source"),
-                    "count": rec.get("count"),
-                    "exception": (rec.get("exception") or "")[-1500:] or None,
-                }
-            )
-            if len(out) >= limit:
-                break
-        return out
 
     def _list_entries(self, action: dict[str, Any]) -> list[dict[str, Any]]:
         domain = action.get("domain")

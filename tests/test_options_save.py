@@ -17,7 +17,6 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.grok_bot.const import (
     CONF_ALLOW_RESTART,
-    CONF_ALLOW_YAML_EDIT,
     CONF_MAX_PER_DAY,
     CONF_MAX_PER_HOUR,
     CONF_MODE,
@@ -32,7 +31,6 @@ TRUSTED_SWITCH = "switch.grok_bot_trusted_access"
 TRUSTED_INPUT = {
     CONF_TRUSTED: True,
     CONF_TRUSTED_CONFIRM: True,
-    CONF_ALLOW_YAML_EDIT: True,
     CONF_ALLOW_RESTART: True,
     CONF_TRUSTED_DURATION: "30m",
 }

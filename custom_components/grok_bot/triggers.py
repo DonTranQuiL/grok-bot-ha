@@ -6,10 +6,8 @@ send goes through the hub's budget, pause switch and quiet hours.
 
 from __future__ import annotations
 
-import contextlib
 import logging
 import time as _time
-import traceback
 from typing import Any
 
 from homeassistant.config_entries import (
@@ -29,17 +27,11 @@ from homeassistant.helpers.event import (
 
 from .const import (
     BLOCKED_EVENT_TYPES,
-    CONF_AUTOMATIONS_ACTION,
     CONF_EVENT_ACTION,
     CONF_FILTERS,
     CONF_FORWARD_ENTITIES,
     CONF_FORWARD_EVENTS,
     CONF_IGNORE_UNAVAILABLE,
-    CONF_LOG_ACTION,
-    CONF_LOG_DEDUPE,
-    CONF_LOG_LEVEL,
-    CONF_LOG_LOGGER_MODE,
-    CONF_LOG_LOGGERS,
     CONF_MIN_INTERVAL,
     CONF_REPAIRS_ACTION,
     CONF_SETUP_ACTION,
@@ -49,8 +41,6 @@ from .const import (
     CONF_TEMPLATE_STATE,
     CONF_UNAVAILABLE_ACTION,
     CONF_UNAVAILABLE_MINUTES,
-    CONF_WATCH_AUTOMATIONS,
-    CONF_WATCH_LOGS,
     CONF_WATCH_REPAIRS,
     CONF_WATCH_SETUP,
     CONF_WATCH_UNAVAILABLE,
@@ -60,19 +50,12 @@ from .const import (
     FILTER_BELOW,
     FILTER_MIN_INTERVAL,
     FILTER_TO_STATES,
-    LOGGER_MODE_ALLOW,
-    LOGGER_MODE_DENY,
+    SETUP_DEDUPE,
     STATUS_DROPPED_COOLDOWN,
 )
 from .hub import GrokBotHub
 
 _LOGGER = logging.getLogger(__name__)
-_OWN_LOGGERS = (f"custom_components.{DOMAIN}", f"homeassistant.components.{DOMAIN}")
-_AUTOMATION_LOGGERS = (
-    "homeassistant.components.automation",
-    "homeassistant.components.script",
-)
-_SETUP_LOGGERS = ("homeassistant.setup", "homeassistant.config_entries")
 _BAD_STATES = (STATE_UNAVAILABLE, STATE_UNKNOWN)
 
 
@@ -135,7 +118,6 @@ class TriggerManager:
         self._cooldown: dict[str, float] = {}
         self._unavailable_timers: dict[str, CALLBACK_TYPE] = {}
         self._dedupe: dict[str, list[float | int]] = {}
-        self._log_handler: _GrokBotLogHandler | None = None
 
     @property
     def opts(self) -> dict[str, Any]:
@@ -168,9 +150,6 @@ class TriggerManager:
                     self.hass, SIGNAL_CONFIG_ENTRY_CHANGED, self._on_entry_changed
                 )
             )
-        if opts[CONF_WATCH_LOGS] or opts[CONF_WATCH_AUTOMATIONS] or opts[CONF_WATCH_SETUP]:
-            self._log_handler = _GrokBotLogHandler(self)
-            logging.getLogger().addHandler(self._log_handler)
 
     @callback
     def async_stop(self) -> None:
@@ -180,9 +159,6 @@ class TriggerManager:
         for cancel in self._unavailable_timers.values():
             cancel()
         self._unavailable_timers.clear()
-        if self._log_handler:
-            logging.getLogger().removeHandler(self._log_handler)
-            self._log_handler = None
 
     # -------------------------------------------------------------- helpers
     def _cooling_down(self, key: str, interval: float) -> bool:
@@ -195,7 +171,7 @@ class TriggerManager:
 
     def _dedupe_hit(self, key: str) -> int | None:
         """None if within the dedupe window, else the suppressed repeat count."""
-        window = float(self.opts[CONF_LOG_DEDUPE])
+        window = float(SETUP_DEDUPE)
         now = _time.monotonic()
         seen = self._dedupe.get(key)
         if seen is not None and now - seen[0] < window:
@@ -387,55 +363,6 @@ class TriggerManager:
             data=info,
         )
 
-    @callback
-    def async_process_log(self, rec: dict[str, Any]) -> None:
-        """Handle a captured log record (already on the event loop)."""
-        name: str = rec["name"]
-        opts = self.opts
-        if name.startswith(_AUTOMATION_LOGGERS) and rec["levelno"] >= logging.ERROR:
-            if not opts[CONF_WATCH_AUTOMATIONS]:
-                return
-            kind, action = "automation_error", opts[CONF_AUTOMATIONS_ACTION]
-        elif (
-            name.startswith(_SETUP_LOGGERS)
-            and rec["levelno"] >= logging.ERROR
-            and opts[CONF_WATCH_SETUP]
-        ):
-            kind, action = "setup_error", opts[CONF_SETUP_ACTION]
-        else:
-            if not opts[CONF_WATCH_LOGS]:
-                return
-            if rec["levelno"] < logging.getLevelName(str(opts[CONF_LOG_LEVEL]).upper()):
-                return
-            loggers = [lg.strip() for lg in opts[CONF_LOG_LOGGERS] if lg.strip()]
-            matched = any(name == lg or name.startswith(f"{lg}.") for lg in loggers)
-            mode = opts[CONF_LOG_LOGGER_MODE]
-            if mode == LOGGER_MODE_ALLOW and not matched:
-                return
-            if mode == LOGGER_MODE_DENY and matched:
-                return
-            kind, action = "log_error", opts[CONF_LOG_ACTION]
-        repeats = self._dedupe_hit(f"{kind}:{name}:{rec['template']}")
-        if repeats is None:
-            return
-        info = {
-            "logger": name,
-            "level": rec["level"],
-            "source": rec["source"],
-            "repeats_suppressed": repeats,
-            "traceback": rec["traceback"],
-        }
-        self.hub.recent_errors.append(
-            {k: v for k, v in info.items() if k != "traceback"} | {"message": rec["message"][:500]}
-        )
-        self._send(
-            kind,
-            self._issue_message(kind, f"{rec['level']} from {name}: {rec['message']}", info),
-            source=name,
-            action_mode=action,
-            data=info,
-        )
-
 
 def issue_info(hass: HomeAssistant, domain: str, issue_id: str) -> dict | None:
     """JSON-friendly description of a repair issue."""
@@ -465,34 +392,3 @@ def open_issues(hass: HomeAssistant) -> list[dict]:
         if info := issue_info(hass, domain, issue_id):
             out.append(info)
     return out
-
-
-class _GrokBotLogHandler(logging.Handler):
-    """Captures WARNING+ records and hands them to the event loop."""
-
-    def __init__(self, manager: TriggerManager) -> None:
-        super().__init__(level=logging.WARNING)
-        self._manager = manager
-        self._loop = manager.hass.loop
-
-    def emit(self, record: logging.LogRecord) -> None:
-        if record.name.startswith(_OWN_LOGGERS):
-            return
-        try:
-            message = record.getMessage()
-        except Exception:
-            message = str(record.msg)
-        tb = None
-        if record.exc_info:
-            tb = "".join(traceback.format_exception(*record.exc_info))[-4000:]
-        rec = {
-            "name": record.name,
-            "level": record.levelname,
-            "levelno": record.levelno,
-            "message": message[:2000],
-            "template": str(record.msg)[:200],
-            "source": f"{record.pathname}:{record.lineno}",
-            "traceback": tb,
-        }
-        with contextlib.suppress(RuntimeError):  # loop closed during shutdown
-            self._loop.call_soon_threadsafe(self._manager.async_process_log, rec)

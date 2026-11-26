@@ -17,7 +17,6 @@ from custom_components.grok_bot.const import (
     CONF_MODE,
     CONF_PRESET,
     CONF_TEMPLATE_STATE,
-    CONF_WATCH_LOGS,
     CONF_WATCH_REPAIRS,
     CONF_WEBHOOK_URL,
     DOMAIN,
@@ -62,9 +61,9 @@ async def test_user_flow_creates_entry_with_preset(hass, webhook_mock):
     assert result["data"][CONF_AUTH_HEADER] == AUTH
     assert result["data"]["inbound_webhook_id"]
     opts = result["options"]
-    assert opts[CONF_WATCH_LOGS] is True
     assert opts[CONF_WATCH_REPAIRS] is True
-    assert opts["log_action"] == "diagnose"
+    assert opts["watch_setup"] is True
+    assert opts["setup_action"] == "diagnose"
     assert opts[CONF_FORWARD_ENTITIES] == []
     assert opts["enable_notify"] is False
     assert opts["enable_conversation"] is False
@@ -83,9 +82,7 @@ async def test_ask_only_preset_is_quiet(hass, webhook_mock):
         result["flow_id"], {"access_method": "mcp"}
     )
     opts = result["options"]
-    assert not any(
-        opts[k] for k in ("watch_logs", "watch_repairs", "watch_setup", "watch_automations")
-    )
+    assert not any(opts[k] for k in ("watch_repairs", "watch_setup"))
 
 
 @pytest.mark.parametrize(
@@ -174,7 +171,8 @@ async def test_options_simple_menu_and_preset(hass, webhook_mock):
     )
     flow = await _menu(hass, flow, "finish")
     assert flow["type"] is FlowResultType.CREATE_ENTRY
-    assert entry.options[CONF_WATCH_LOGS] is True
+    assert entry.options["watch_setup"] is True
+    assert entry.options[CONF_WATCH_REPAIRS] is False
     assert entry.options[CONF_MAX_PER_HOUR] == 5
 
 
@@ -227,21 +225,12 @@ async def test_options_advanced(hass, webhook_mock):
     flow = await hass.config_entries.options.async_configure(
         flow["flow_id"],
         {
-            "logs": {
-                "watch_logs": True,
-                "log_level": "warning",
-                "log_logger_mode": "allow",
-                "log_loggers": ["custom_components.helios_tilt"],
-                "log_dedupe": 600,
-                "log_action": "fix",
-            },
             "repairs": {"watch_repairs": True, "repairs_action": "diagnose"},
             "unavailable": {
                 "watch_unavailable": ["sensor.temp"],
                 "unavailable_minutes": 10,
                 "unavailable_action": "report",
             },
-            "automations": {"watch_automations": False, "automations_action": "report"},
             "setup": {"watch_setup": True, "setup_action": "fix"},
         },
     )
@@ -255,9 +244,33 @@ async def test_options_advanced(hass, webhook_mock):
     assert o[CONF_MODE] == "advanced"
     assert o[CONF_PRESET] == "custom"
     assert o[CONF_FILTERS] == {"sensor.temp": {"above": 30.0, "min_interval": 60}}
-    assert o["log_action"] == "fix"
-    assert o["log_dedupe"] == 600
+    assert o[CONF_WATCH_REPAIRS] is True
+    assert o["watch_setup"] is True
+    assert o["setup_action"] == "fix"
     assert o[CONF_FORWARD_EVENTS] == ["zha_event"]
     assert o[CONF_TEMPLATE_STATE] == "{{ to_state.state }} now"
     await hass.async_block_till_done()
     assert entry.state.value == "loaded"  # reloaded with the new options
+
+
+async def test_stale_options_are_sanitized(hass, webhook_mock):
+    """Older entries that still store removed keys keep working after setup."""
+    entry = await setup_entry(
+        hass,
+        watch_logs=True,
+        log_level="warning",
+        log_action="fix",
+        watch_automations=True,
+        allow_yaml_edit=True,
+        access_actions=["reply", "get_states", "get_logs", "list_repairs"],
+    )
+    opts = entry.options
+    assert "watch_logs" not in opts
+    assert "allow_yaml_edit" not in opts
+    assert "watch_automations" not in opts
+    assert "get_logs" not in opts["access_actions"]
+    assert "reply" in opts["access_actions"]
+    assert "list_repairs" in opts["access_actions"]
+    hub_opts = entry.runtime_data.hub.options
+    assert "watch_logs" not in hub_opts
+    assert "get_logs" not in hub_opts["access_actions"]

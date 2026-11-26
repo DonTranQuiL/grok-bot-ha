@@ -1,6 +1,6 @@
 # Grok Bot for Home Assistant
 
-![Grok Bot fixing an open repair from the dashboard card: backup, YAML edit, config check, restart and the reply](docs/images/demo.gif)
+![Grok Bot fixing an open repair from the dashboard card and reporting back](docs/images/demo.gif)
 
 [![Marketplace](https://img.shields.io/badge/Marketplace-HA%202026.11+-41BDF5.svg)](https://my.home-assistant.io/redirect/marketplace_repository/?owner=DonTranQuiL&repository=grok-bot-ha&category=integration)
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://hacs.xyz/)
@@ -10,7 +10,7 @@
 
 Let Home Assistant talk to your **Grok Bot** assistant. Home Assistant sends questions, tasks, events and problems to a Grok Bot **routine webhook**. Grok Bot then looks into them and acts in Home Assistant through its own Home Assistant connector (**HA-MCP**), and answers back with the `grok_bot.reply` action, which updates the sensors and the dashboard card.
 
-*The GIF above: the card shows an open `http` repair. Pressing **Fix** sends a fix request; Grok Bot backs up `configuration.yaml`, removes the leftover `http:` block with `grok_bot.edit_yaml`, runs a config check, restarts Home Assistant with `grok_bot.safe_restart` and reports back in the card.*
+*The GIF above: the card shows an open repair. Pressing **Fix** sends a fix request; Grok Bot investigates and reports back in the card.*
 
 > **Every message Home Assistant sends to the webhook costs Grok Bot usage.** Nothing is sent automatically until you allow it, and a send budget (20 per hour, 100 per 24 hours by default) drops anything over the limit instead of queueing it.
 
@@ -31,7 +31,6 @@ Let Home Assistant talk to your **Grok Bot** assistant. Home Assistant sends que
 - [Repairs raised by Grok Bot](#repairs-raised-by-grok-bot)
 - [The dashboard card](#the-dashboard-card)
 - [Trusted access (opt-in, risky)](#trusted-access-opt-in-risky)
-- [Worked example: fixing the `http` YAML repair](#worked-example-fixing-the-http-yaml-repair)
 - [Assist and notify](#assist-and-notify)
 - [Blueprints](#blueprints)
 - [Payload schema (what the webhook receives)](#payload-schema-what-the-webhook-receives)
@@ -74,11 +73,11 @@ Replies are asynchronous: they take seconds to minutes, not milliseconds.
 * ✅ **Simple mode** with presets for beginners: *Ask only*, *Errors only*, *Errors + repairs, diagnose*, or *Custom*.
 * ✅ **Advanced mode** with every option: allowlists, per-entity filters, Jinja message templates, a per-trigger action mode, quiet hours, budgets, debounce, a payload size limit and an attribute toggle.
 * ✅ **Actions:** `grok_bot.ask`, `send_event`, `diagnose`, `fix_issue`, `health_report`, `ping` (all return the delivery status), and `grok_bot.reply` for Grok Bot's answers.
-* ✅ **Problem watchers** (opt-in): logged errors and warnings, repair issues, entities that stay unavailable, failed automations and scripts, and integration setup failures. Per watcher you choose whether Grok Bot only **reports**, **diagnoses**, or may **diagnose and fix**.
+* ✅ **Problem watchers** (opt-in): repair issues, entities that stay unavailable, and integration setup failures. Per watcher you choose whether Grok Bot only **reports**, **diagnoses**, or may **diagnose and fix**.
 * ✅ **Budget guard:** hourly and 24-hour limits, a **Pause sending** switch, counter sensors and `grok_bot_dropped` events. Nothing is queued and nothing is retried automatically.
 * ✅ **Replies update Home Assistant:** a *Last reply* sensor with recent history, a `grok_bot_reply` event, and delivery to an `input_text`, a notify entity or service, or a persistent notification.
 * ✅ **Access through HA-MCP (recommended):** guided onboarding detects HA-MCP (then core MCP Server), says *Install HA-MCP first* when it's missing, and otherwise shows a ready-to-paste **setup prompt** that connects your Grok Bot.
-* ✅ **Trusted access (opt-in, Advanced):** for repairs that need YAML edits or a restart. Backups before every edit, a config check before every restart, a window that switches itself off (30 min, 2 h, 24 h or *Always on*), a safe `grok_bot.edit_yaml` with automatic rollback, a restart that waits for Grok Bot's reply, and a notification for every action.
+* ✅ **Trusted access (opt-in, Advanced):** for repairs that need a restart. A config check before every restart, a window that switches itself off (30 min, 2 h, 24 h or *Always on*), a restart that waits for Grok Bot's reply, and a notification for every action.
 * ✅ **"Awaiting reply" never sticks:** a reply timeout (10 min) marks requests *Replied in Grok Bot app*, and a *Mark replies handled* button clears them at once. Awaiting conversations survive restarts.
 * ✅ **Dashboard card** `custom:grok-bot-card`: an animated bot avatar (idle, thinking, success, error, paused, restarting), an ask box, the last reply, the recent conversation, budget chips, and Diagnose/Fix buttons for open repairs. Visual editor, dark and light theme, custom avatar.
 * ✅ **Optional entities:** a notify entity (`notify.send_message` to Grok Bot) and an **Assist conversation agent**.
@@ -150,8 +149,8 @@ Keep both values private. Anyone with them can make your routine run and use you
    | Preset | What gets sent automatically |
    | --- | --- |
    | **Ask only** (default) | Nothing. Only your own actions, buttons and the card. |
-   | **Errors only** | Logged errors, failed automations or scripts, and integration setup failures (*report*). |
-   | **Errors + repairs, diagnose** | The above plus new repair issues. Grok Bot investigates each one (*diagnose*). |
+   | **Errors only** | Integration setup failures (*report*). |
+   | **Errors + repairs, diagnose** | Integration setup failures and new repair issues. Grok Bot investigates each one (*diagnose*). |
    | **Custom** | Opens Advanced mode with every option. |
 
 ### Step 4: Access, then *Connect it in Grok Bot*
@@ -216,13 +215,11 @@ Hi Grok Bot, please connect my Home Assistant "<your HA name>" to you.
    (copy the exact remote URL from HA-MCP > Configure in Home Assistant if this one is a placeholder).
    Show me the one-time connector sign-in card: I log in on my own Home Assistant page, so my password never reaches you; the access token can be revoked any time in Home Assistant under Profile > Security.
 2. Create or update a webhook routine for the Grok Bot Home Assistant integration. Its webhook URL is: <your Grok Bot routine webhook URL>
-   Each POST carries a JSON payload with schema, type (ask, event, state, issue, log, health_report, ping, ...), message, conversation_id, action_mode, allow_fix, context and an access block.
+   Each POST carries a JSON payload with schema, type (ask, event, state, issue, health_report, ping, ...), message, conversation_id, action_mode, allow_fix, context and an access block.
 3. Rules for that routine:
    - Respect action_mode: report = just summarise; diagnose = investigate read-only; fix = only when allow_fix is true, and only safe, reversible fixes (reload an integration, re-enable an entity, dismiss a fixed repair).
-   - Never delete integrations, devices or entities. Never restart Home Assistant Core and never edit configuration files, unless the payload's access block has trusted: true:
-     - allow_yaml_edit: true lets you edit configuration.yaml, automations.yaml, scripts.yaml, scenes.yaml or files under packages/ (never secrets.yaml, .storage or custom_components). Always call grok_bot.prepare_change with the file path first and keep the returned backup_path; if anything goes wrong call grok_bot.restore_backup with it.
-     - Prefer grok_bot.edit_yaml (path + operation remove_key / set_key / replace_text): it makes the backup itself, validates the YAML, runs a configuration check and restores the backup automatically when the check fails. Use it for top-level keys such as http, homeassistant, frontend or lovelace that the HA-MCP file tools refuse.
-     - allow_restart: true lets you restart, but only through grok_bot.safe_restart (it checks the configuration first and returns the errors instead of restarting when it is invalid). Pass the payload's conversation_id to grok_bot.safe_restart and send your grok_bot.reply right after it: the restart waits for that reply (at most 25 seconds), so the answer is never lost.
+   - Never delete integrations, devices or entities. Never edit the user's YAML configuration files. Never restart Home Assistant Core unless the payload's access block has trusted: true and allow_restart: true:
+     - Then you may restart, but only through grok_bot.safe_restart (it checks the configuration first and returns the errors instead of restarting when it is invalid). Pass the payload's conversation_id to grok_bot.safe_restart and send your grok_bot.reply right after it: the restart waits for that reply (at most 25 seconds), so the answer is never lost.
    - Always answer through the grok_bot.reply action on this Home Assistant (HA-MCP connector "<your HA name>") with the payload's conversation_id, so the integration's sensors update.
    - Stay quiet in our chat for routine successes; only message me when something failed or needs my decision.
 4. Confirm it works: call grok_bot.reply with message "Connected" (no conversation_id needed).
@@ -238,13 +235,11 @@ Hoi Grok Bot, koppel alsjeblieft mijn Home Assistant "<your HA name>" aan jou.
    (kopieer de exacte externe URL uit HA-MCP > Configureren in Home Assistant als dit een voorbeeld is).
    Laat me de eenmalige aanmeldkaart van de connector zien: ik log in op de pagina van mijn eigen Home Assistant, dus mijn wachtwoord komt nooit bij jou; het toegangstoken kan ik altijd intrekken in Home Assistant onder Profiel > Beveiliging.
 2. Maak of werk een webhook-routine bij voor de Grok Bot Home Assistant-integratie. De webhook-URL is: <your Grok Bot routine webhook URL>
-   Elke POST bevat JSON met schema, type (ask, event, state, issue, log, health_report, ping, ...), message, conversation_id, action_mode, allow_fix, context en een access-blok.
+   Elke POST bevat JSON met schema, type (ask, event, state, issue, health_report, ping, ...), message, conversation_id, action_mode, allow_fix, context en een access-blok.
 3. Regels voor die routine:
    - Volg action_mode: report = alleen samenvatten; diagnose = alleen-lezen onderzoeken; fix = alleen als allow_fix true is, en alleen veilige, omkeerbare oplossingen (integratie herladen, entiteit weer inschakelen, opgeloste reparatie negeren).
-   - Verwijder nooit integraties, apparaten of entiteiten. Herstart nooit Home Assistant Core en bewerk nooit configuratiebestanden, behalve als het access-blok trusted: true bevat:
-     - allow_yaml_edit: true staat bewerken toe van configuration.yaml, automations.yaml, scripts.yaml, scenes.yaml of bestanden onder packages/ (nooit secrets.yaml, .storage of custom_components). Roep altijd eerst grok_bot.prepare_change aan met het bestandspad en bewaar het teruggegeven backup_path; gaat er iets mis, roep dan grok_bot.restore_backup aan met dat pad.
-     - Gebruik bij voorkeur grok_bot.edit_yaml (pad + bewerking remove_key / set_key / replace_text): die maakt zelf de back-up, controleert de YAML, voert een configuratiecontrole uit en zet de back-up automatisch terug als die mislukt. Gebruik dit voor sleutels op het hoogste niveau zoals http, homeassistant, frontend of lovelace die de HA-MCP-bestandstools weigeren.
-     - allow_restart: true staat herstarten toe, maar alleen via grok_bot.safe_restart (die controleert eerst de configuratie en geeft de fouten terug in plaats van te herstarten als die ongeldig is). Geef de conversation_id uit het bericht mee aan grok_bot.safe_restart en stuur direct daarna je grok_bot.reply: de herstart wacht op dat antwoord (maximaal 25 seconden), zodat het antwoord nooit verloren gaat.
+   - Verwijder nooit integraties, apparaten of entiteiten. Bewerk nooit de YAML-configuratie van de gebruiker. Herstart nooit Home Assistant Core, behalve als het access-blok trusted: true en allow_restart: true bevat:
+     - Dan mag je herstarten, maar alleen via grok_bot.safe_restart (die controleert eerst de configuratie en geeft de fouten terug in plaats van te herstarten als die ongeldig is). Geef de conversation_id uit het bericht mee aan grok_bot.safe_restart en stuur direct daarna je grok_bot.reply: de herstart wacht op dat antwoord (maximaal 25 seconden), zodat het antwoord nooit verloren gaat.
    - Antwoord altijd via de actie grok_bot.reply op deze Home Assistant (HA-MCP-connector "<your HA name>") met de conversation_id uit het bericht, zodat de sensoren van de integratie bijwerken.
    - Blijf stil in onze chat bij routinematige successen; stuur me alleen een bericht als iets mislukt of mijn beslissing nodig is.
 4. Bevestig dat het werkt: roep grok_bot.reply aan met het bericht "Connected" (zonder conversation_id).
@@ -282,18 +277,17 @@ Re-detects HA-MCP / MCP Server every time you open it. The top shows the detecte
 | Field | Default | Meaning |
 | --- | --- | --- |
 | **Access method** | MCP connector | *MCP connector (HA-MCP recommended, or core MCP Server)*; *Access webhook of this integration (Advanced)* for instances without an MCP connector; *No access* (Grok Bot can't answer in HA). |
-| **Access webhook level** | Reply only | Only used by the access webhook: *Reply only*, *Read* (states, history, logs, repairs), *Control* (call actions on allowed entities), *Fix* (also reload integrations, dismiss repairs, enable entities). Restarts, Supervisor/host actions and deleting integrations are always blocked. |
+| **Access webhook level** | Reply only | Only used by the access webhook: *Reply only*, *Read* (states, history, repairs), *Control* (call actions on allowed entities), *Fix* (also reload integrations, dismiss repairs, enable entities). Restarts, Supervisor/host actions and deleting integrations are always blocked. |
 | **Reply timeout** | 10 min | After this many minutes an awaiting request counts as answered in the Grok Bot app (0 = never). |
-| Allowed webhook actions **(Advanced)** | all | Which access webhook actions may be used: Reply, Read states, Read history, List repairs, Read logs, List integrations, Call actions, Reload integration, Dismiss repair, Enable entity. |
+| Allowed webhook actions **(Advanced)** | all | Which access webhook actions may be used: Reply, Read states, Read history, List repairs, List integrations, Call actions, Reload integration, Dismiss repair, Enable entity. |
 | Allowed action domains **(Advanced)** | empty = all not blocked | Domains `call_service` may use. |
 | Allowed entities **(Advanced)** | empty = all | Entities the access webhook may touch. |
 | Only while a request is open **(Advanced)** | on | Access webhook calls only work while a request is open. |
 | Session length **(Advanced)** | 15 min | How long such a session stays open. |
 | Notify me of every action **(Advanced)** | off | A persistent notification for every access webhook action. |
 | Max response size **(Advanced)** | 64 kB | Limit for access webhook responses. |
-| **Trusted access (YAML edits and restarts)** 🚩 **(Advanced)** | off | See [Trusted access](#trusted-access-opt-in-risky). |
-| I understand Grok Bot may edit configuration files and restart Home Assistant **(Advanced)** | off | Required to turn Trusted access on (otherwise: *Tick the confirmation to turn on Trusted access*). Turning Trusted off clears it. |
-| Trusted: allow YAML edits **(Advanced)** | on | Allows `edit_yaml`, `prepare_change`, `restore_backup` while Trusted is active. |
+| **Trusted access (restarts)** 🚩 **(Advanced)** | off | See [Trusted access](#trusted-access-opt-in-risky). |
+| I understand Grok Bot may restart Home Assistant **(Advanced)** | off | Required to turn Trusted access on (otherwise: *Tick the confirmation to turn on Trusted access*). Turning Trusted off clears it. |
 | Trusted: allow restarts **(Advanced)** | on | Allows `safe_restart` while Trusted is active. |
 | Trusted window **(Advanced)** | 30 minutes | 30 minutes, 2 hours, 24 hours or *Always on (until I switch it off)* 🚩. |
 
@@ -341,10 +335,8 @@ Every watcher is off until you enable it (or a preset does). Each has its own ac
 
 | Section | Fields |
 | --- | --- |
-| Logged errors and warnings | Forward log records; minimum level (warning, error, critical); logger filter (all, only these, all except these) with logger names such as `homeassistant.components.zha`; group identical errors for N seconds (default 3600, the repeat count goes with the next one). Grok Bot's own log lines are never forwarded. |
 | Repair issues | Forward new repair issues. |
 | Unavailable entities | Entities to watch; unavailable or unknown for N minutes (default 15). |
-| Failed automations and scripts | Forward automation and script errors. |
 | Integration setup failures | Forward integrations that end in setup error or retry. |
 </details>
 
@@ -411,9 +403,6 @@ Common fields for the sending actions: `context_entities` (their states are atta
 | `grok_bot.reply` | `message`, `conversation_id`, `title`, `reply_to`, `data`, `config_entry_id` (used by Grok Bot) | – |
 | `grok_bot.rotate_token` | `config_entry_id` | – |
 | `grok_bot.clear_history` | `config_entry_id` | `{"history", "awaiting"}` |
-| `grok_bot.prepare_change` | `path` (Trusted + YAML edits, admin only) | `{"path", "backup_path"}` |
-| `grok_bot.restore_backup` | `backup_path` (Trusted + YAML edits, admin only) | `{"path", "restored_from"}` |
-| `grok_bot.edit_yaml` | `path`, `operation` (`remove_key` / `set_key` / `replace_text`), `key`, `value`, `find`, `replace`, `count` (Trusted + YAML edits, admin only) | `{"ok", "changed", "path", "backup_path", "errors", "restored", "restart_required"}` |
 | `grok_bot.safe_restart` | `conversation_id` (optional) (Trusted + restarts, admin only) | `{"valid", "restarting", "errors", "delay", "waiting_for_reply"}` |
 
 Delivery status: `{"status": "sent" | "failed" | "auth_failed" | "dropped_budget" | "dropped_paused" | "dropped_quiet_hours" | "dropped_too_large", "conversation_id": "…", "http_status": 200, "sends_last_hour": 3, "sends_last_24h": 27, "remaining_last_hour": 17, "remaining_last_24h": 73}`.
@@ -450,13 +439,6 @@ data:
   conversation_id: "8f3c…"
   title: "Solar tilt fixed"
   message: "The actuator lost its Zigbee route; I re-interviewed it."
----
-# Trusted: remove a top-level key safely (backup + check + auto-restore)
-action: grok_bot.edit_yaml
-data:
-  path: configuration.yaml
-  operation: remove_key
-  key: http
 ---
 # Trusted: restart after the reply of this conversation
 action: grok_bot.safe_restart
@@ -513,15 +495,17 @@ Everything is also in the visual editor. The card follows the dark or light them
 
 ## Trusted access (opt-in, risky)
 
-Some repairs can only be fixed by editing YAML and restarting, for example a leftover `http:` block. Over the normal paths Grok Bot never does that (and HA-MCP's file tools refuse top-level keys such as `http`, `homeassistant`, `frontend` and `lovelace`). **Trusted access** allows it, under strict rules.
+Some repairs can only be finished by restarting Home Assistant. **Trusted access** lets Grok Bot do that, under strict rules, through `grok_bot.safe_restart` (a configuration check first, and the restart waits for Grok Bot's reply).
 
-![Access page with Trusted access, its confirmation, YAML edits, restarts and the trusted window](docs/images/access-trusted.png)
+The Home Assistant Marketplace and the HACS default store do not allow integrations to edit the user's YAML configuration. `grok_bot.edit_yaml`, `prepare_change` and `restore_backup` were therefore removed from this version. YAML editing will return later as a separate companion you can add as a custom repository, outside the store.
+
+![Access page with Trusted access, its confirmation, restarts and the trusted window](docs/images/access-trusted.png)
 
 ### Turn it on
 
 1. **Configure > Switch to Advanced mode**, then **Access**. Scroll down.
-2. Tick **Trusted access (YAML edits and restarts)** 🚩 **and** *I understand Grok Bot may edit configuration files and restart Home Assistant* (required).
-3. Choose **Trusted: allow YAML edits** and **Trusted: allow restarts** (both on by default), and the **Trusted window**: 30 minutes (default), 2 hours, 24 hours or **Always on** 🚩🚩.
+2. Tick **Trusted access (restarts)** 🚩 **and** *I understand Grok Bot may restart Home Assistant* (required).
+3. Choose **Trusted: allow restarts** (on by default), and the **Trusted window**: 30 minutes (default), 2 hours, 24 hours or **Always on** 🚩🚩.
 4. Press **Submit**. The entry reloads and the switch **Trusted access** (`switch.grok_bot_trusted_access`) appears under *Configuration* on the device page. No switch? You did not tick both boxes, or you closed the dialog without Submit.
 5. **Turn the switch on** when you want Grok Bot to work on such a repair. Only then is Trusted *active*.
 
@@ -532,43 +516,24 @@ Some repairs can only be fixed by editing YAML and restarting, for example a lef
 
 ### What Grok Bot may and may not do
 
-Only for **fix requests** (`action_mode: fix`, `allow_fix: true`, e.g. the **Fix** button or *Fix open repairs*) and only while the switch is on, the payload carries `access.trusted: true` with `allow_yaml_edit`, `allow_restart`, `trusted_until` and the service names. Then:
+Only for **fix requests** (`action_mode: fix`, `allow_fix: true`, e.g. the **Fix** button or *Fix open repairs*) and only while the switch is on, the payload carries `access.trusted: true` with `allow_restart`, `trusted_until` and the restart service name. Then:
 
-* **May edit:** `configuration.yaml`, `automations.yaml`, `scripts.yaml`, `scenes.yaml` and `*.yaml` under `packages/`.
-* **Never:** `secrets.yaml`, `.storage`, `custom_components`, `.grok_bot_backups`, hidden files or anything outside `/config`.
-* The four Trusted actions are **admin-only** and refuse to run unless Trusted is active (and the matching *allow* option is on).
-* Every Trusted action (switch on/off, backup, edit, restore, restart, denials, *restart done*) goes to the *Last Grok Bot action* audit sensor, the `grok_bot_action` event and a persistent notification.
+* **May restart** Home Assistant, but only through `grok_bot.safe_restart`, and only after a passing configuration check.
+* **Never** edit the user's YAML configuration files from this integration.
+* `grok_bot.safe_restart` is **admin-only** and refuses to run unless Trusted is active and restarts are allowed.
+* Every Trusted action (switch on/off, restart, denials, *restart done*) goes to the *Last Grok Bot action* audit sensor, the `grok_bot_action` event and a persistent notification.
 
 ### The tools
 
 | Action | What it does |
 | --- | --- |
-| `grok_bot.prepare_change` | Copies the file to `/config/.grok_bot_backups/<file>.<timestamp>.bak` and returns `backup_path` (the last 50 backups are remembered). |
-| `grok_bot.edit_yaml` | Makes that backup itself, applies the edit **as text** (comments and other keys stay as they are), validates the YAML (`!secret`/`!include` allowed), runs a **full configuration check**, and **restores the backup automatically** when the check fails. Operations: `remove_key` (removes every top-level block of `key`, duplicates too), `set_key` (replaces or adds a top-level `key` with `value`), `replace_text` (`find` → `replace`, `count` 0 = all; for nested changes). Returns `restart_required: true` when something changed. |
-| `grok_bot.restore_backup` | Puts a backup from `prepare_change`/`edit_yaml` back. |
-| `grok_bot.safe_restart` | Runs the configuration check again and **only restarts when it is valid** (otherwise it returns the errors). |
+| `grok_bot.safe_restart` | Runs the configuration check and **only restarts when it is valid** (otherwise it returns the errors). |
 
 ### The restart waits for the reply
 
 Grok Bot passes the payload's `conversation_id` to `safe_restart` and sends its `grok_bot.reply` right after. While that conversation still awaits its reply, the restart waits (at most **25 seconds**; *Last status* and the card show *Restarting after the reply*) and goes ahead **2 seconds after the reply has arrived**. Without a `conversation_id` it waits for any conversation that still awaits a reply; when nothing does, it restarts at once.
 
 Awaiting conversations are kept in storage. If the reply only arrives after the restart, it still lands in the right conversation and goes to its `reply_to`. After the restart the history gets a *Restart done, Home Assistant is back.* entry, and until the result is in, the card shows *Restarted, waiting for the result*. Reloading the integration during the wait cancels the restart.
-
-## Worked example: fixing the `http` YAML repair
-
-This is what the GIF at the top shows. After Home Assistant moved the HTTP settings to the UI, an old `http:` block in `configuration.yaml` raises the repair **`http.yaml_still_present_after_migration`** (the YAML is ignored; the UI settings under **Settings > System > Network** are used).
-
-1. Enable Trusted access with *allow YAML edits* and *allow restarts* (see above) and press Submit.
-2. Turn on **Trusted access** on the device page.
-3. In the card, press **Fix** next to the `http` repair (or press **Fix open repairs**).
-4. Grok Bot receives a fix request with `access.trusted: true` and:
-   1. checks the repair and the current UI network settings through HA-MCP;
-   2. calls `grok_bot.edit_yaml` with `path: configuration.yaml`, `operation: remove_key`, `key: http` → backup `/config/.grok_bot_backups/configuration.yaml.<timestamp>.bak`, every `http:` block removed, YAML valid, config check passed;
-   3. calls `grok_bot.safe_restart` with the `conversation_id`, then `grok_bot.reply`: *"Removed the leftover http: block … Backup: … Config check passed, restarting."*;
-5. Home Assistant restarts 2 seconds after that reply. The card shows the answer and, after the restart, *Restart done, Home Assistant is back.* The repair is gone and the Trusted switch is off again (timed window).
-6. Something wrong? Call `grok_bot.restore_backup` with the `backup_path` from the reply (or copy the `.bak` file back yourself) and restart.
-
-Tip: compare the trusted proxies of the old `http:` block with **Settings > System > Network** before you let it go; the UI is what counts.
 
 ## Assist and notify
 
@@ -603,13 +568,13 @@ Tip: compare the trusted proxies of the old `http:` block with **Settings > Syst
   "timestamp": "2026-11-13T08:40:00+00:00",
   "ha_instance": {"name": "Home", "version": "2026.11.0", "integration_version": "0.1.4", "config_entry_id": "…", "time_zone": "Europe/Amsterdam"},
   "reply_with": {"service": "grok_bot.reply", "data": {"config_entry_id": "…", "conversation_id": "8f3c…", "message": "<your answer>"}},
-  "access": {"method": "mcp | webhook | none", "configured_method": "mcp", "mcp_ready": true, "trusted": true, "allow_yaml_edit": true, "allow_restart": false, "trusted_until": "… | forever", "always_on": false, "mcp_provider": "ha_mcp | mcp_server | null", "connector_url_hint": "https://…/api/webhook/<HA-MCP webhook id>", "ha_instance": {"name": "Home", "external_url": "https://…", "config_entry_id": "…"}},
+  "access": {"method": "mcp | webhook | none", "configured_method": "mcp", "mcp_ready": true, "trusted": true, "allow_restart": false, "trusted_until": "… | forever", "always_on": false, "mcp_provider": "ha_mcp | mcp_server | null", "connector_url_hint": "https://…/api/webhook/<HA-MCP webhook id>", "ha_instance": {"name": "Home", "external_url": "https://…", "config_entry_id": "…"}},
   "callback": {"protocol": 1, "url": "https://…/api/webhook/…", "token": "…", "token_header": "X-Grok-Bot-Token", "access_level": "reply", "allowed_actions": ["reply"], "expires": "…", "conversation_id": "8f3c…"},
   "truncated": true
 }
 ```
 
-`trusted`, `allow_yaml_edit`, `allow_restart`, `trusted_until`, `always_on` and the service names only appear for fix requests (`action_mode: fix`, `allow_fix: true`) while Trusted access is active. `access.method` is the path that works right now (`none` when the configured MCP server isn't installed or the access webhook has no external URL). `callback` is only present with the access webhook method. `truncated` only appears when the payload had to be shrunk to fit the size limit. The integration first drops attributes, then large detail fields, then shortens the message.
+`trusted`, `allow_restart`, `trusted_until`, `always_on` and the restart service name only appear for fix requests (`action_mode: fix`, `allow_fix: true`) while Trusted access is active. `access.method` is the path that works right now (`none` when the configured MCP server isn't installed or the access webhook has no external URL). `callback` is only present with the access webhook method. `truncated` only appears when the payload had to be shrunk to fit the size limit. The integration first drops attributes, then large detail fields, then shortens the message.
 
 **Telling Grok Bot what to do.** Put this in the routine's instructions: *"Handle the Home Assistant payload. Respect `action_mode`: for `report`, only summarise; for `diagnose`, investigate with the Home Assistant connector without changing anything; for `fix`, only perform safe, reversible fixes (reload a config entry, retry, toggle back). Always answer by calling `grok_bot.reply` with the given `conversation_id`. Message me only when `notify_user` is true or something failed."*
 </details>
@@ -623,7 +588,7 @@ For an instance where no MCP connector is possible, set **Configure > Access > A
 | Level | Actions |
 | --- | --- |
 | Reply only (default) | `reply` |
-| Read | + `get_states`, `get_history`, `list_repairs`, `get_logs`, `list_entries` |
+| Read | + `get_states`, `get_history`, `list_repairs`, `list_entries` |
 | Control | + `call_service` (optionally limited to domains/entities) |
 | Fix | + `reload_entry`, `ignore_repair`, `enable_entity` |
 
@@ -700,9 +665,9 @@ The integration, the card and the setup prompt are in English and Dutch; they fo
 * The Authorization header value is stored in the config entry, sent only to the webhook URL, never logged, and redacted in diagnostics along with the webhook URL, the access webhook id/URL and its token.
 * The setup prompt and payloads never contain the Authorization header, HA tokens or the HA-MCP webhook id (the prompt contains the HA-MCP URL so Grok Bot can connect).
 * With HA-MCP or MCP Server, what Grok Bot can do is decided by that integration's settings, not by this one.
-* Trusted access is off by default, needs an explicit confirmation, works only for fix requests while its switch is on, backs up every file before a change, rolls `edit_yaml` back when the config check fails and only restarts after a passing config check. *Always on* has to be chosen explicitly and keeps a warning repair open.
+* Trusted access is off by default, needs an explicit confirmation, works only for fix requests while its switch is on, and only restarts after a passing config check. *Always on* has to be chosen explicitly and keeps a warning repair open.
 * Only https webhook URLs are accepted.
-* The integration never forwards its own log lines or events, so it can't loop.
+* The integration does not watch Home Assistant's logger or forward other integrations' log records. Its own events are never forwarded, so it can't loop.
 * Found a security problem? Please open an [issue](https://github.com/DonTranQuiL/grok-bot-ha/issues) without secrets, webhook URLs or tokens in it.
 
 ## Limitations
@@ -710,6 +675,7 @@ The integration, the card and the setup prompt are in English and Dutch; they fo
 * There is no public Grok Bot API. Delivery is a webhook POST, and answers arrive asynchronously through `grok_bot.reply`.
 * Grok Bot can only act in Home Assistant if its Home Assistant connector (HA-MCP or MCP Server) has access, and that needs a URL reachable from the internet.
 * Because the transport is a private webhook, this integration is meant for the Marketplace and HACS, not Home Assistant core.
+* The Marketplace and the HACS default store do not allow integrations to edit the user's YAML, so this version has no YAML-editing actions. That will return later as a separate companion (custom repository, outside the store).
 
 ## Support
 

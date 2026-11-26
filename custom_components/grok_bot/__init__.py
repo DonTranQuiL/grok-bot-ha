@@ -38,6 +38,7 @@ from .const import (
     MCP_PATH,
     METHOD_MCP,
     SIGNAL_CONNECTED,
+    sanitize_options,
 )
 from .hub import GrokBotHub
 from .mcp import MCP_DOMAINS, ha_mcp_installed, setup_links
@@ -89,6 +90,10 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
 
 async def async_setup_entry(hass: HomeAssistant, entry: GrokBotConfigEntry) -> bool:
     """Set up Grok Bot from a config entry."""
+    cleaned = sanitize_options(dict(entry.options))
+    if cleaned != dict(entry.options):
+        hass.config_entries.async_update_entry(entry, options=cleaned)
+
     client = GrokBotClient(hass, entry.data[CONF_WEBHOOK_URL], entry.data[CONF_AUTH_HEADER])
     hub = GrokBotHub(hass, entry, client)
     await hub.async_load()

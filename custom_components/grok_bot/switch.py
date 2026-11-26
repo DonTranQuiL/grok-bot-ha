@@ -42,7 +42,7 @@ class GrokBotPauseSwitch(GrokBotEntity, SwitchEntity):
 
 
 class GrokBotTrustedSwitch(GrokBotEntity, SwitchEntity):
-    """On = Grok Bot may edit allowlisted YAML files and restart (trusted window)."""
+    """On = Grok Bot may restart Home Assistant (trusted window)."""
 
     _attr_entity_category = EntityCategory.CONFIG
 
@@ -55,9 +55,7 @@ class GrokBotTrustedSwitch(GrokBotEntity, SwitchEntity):
         t = self.hub.trusted
         return {
             "until": t.until_iso,
-            "allow_yaml_edit": t.allow_yaml_edit,
             "allow_restart": t.allow_restart,
-            "backups": [b["backup"] for b in t.backups[-5:]],
         }
 
     async def async_turn_on(self, **kwargs: Any) -> None:
